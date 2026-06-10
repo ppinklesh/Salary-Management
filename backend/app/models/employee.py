@@ -25,7 +25,7 @@ class Employee(Base):
         DateTime, onupdate=func.now(), nullable=True
     )
 
-    salaries: Mapped[list[Salary]] = relationship(
+    salaries: Mapped[list["Salary"]] = relationship(
         back_populates="employee", cascade="all, delete-orphan", order_by="Salary.effective_date.desc()"
     )
 
@@ -37,7 +37,7 @@ class Employee(Base):
     )
 
     @property
-    def current_salary(self) -> Salary | None:
+    def current_salary(self) -> "Salary | None":
         return self.salaries[0] if self.salaries else None
 
     def __repr__(self) -> str:
