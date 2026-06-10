@@ -63,7 +63,7 @@ Build a web-based employee salary management tool for ACME org, replacing the cu
 | Feature | Reasoning |
 |---------|-----------|
 | **Authentication / RBAC** | This is a single-user internal tool for one HR Manager. Adding auth would increase complexity without delivering value for this scope. In production, this would be behind an SSO/corporate auth layer. |
-| **Salary History / Audit Trail** | Valuable for compliance, but the MVP focuses on current-state management. Tracking historical changes would require a separate audit table and versioning logic — a clear iteration-2 feature. |
+| **Salary History UI** | The data model supports salary history (separate Salary table with effective_date), but the UI focuses on current-state management. A salary history view per employee is a natural iteration-2 feature. |
 | **Payroll Processing / Tax Calculations** | This tool manages salary *data*, not payroll *execution*. Tax rules vary by country and change frequently — this is a separate domain that specialized payroll software handles. |
 | **Multi-Currency Conversion** | Exchange rates fluctuate daily. Rather than building unreliable conversion, we store the explicit currency per employee and display salaries in their local currency. Conversion can be added later with a reliable rate API. |
 | **Export to Excel/CSV** | A natural next step given the user persona's Excel background, but not part of the core requirements. Can be added as a thin endpoint returning CSV. |
