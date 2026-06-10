@@ -73,6 +73,26 @@ HTTP Request
 | **Industry standard** | Most popular Python API framework; large ecosystem and community |
 | **Testing** | `TestClient` makes integration tests trivial |
 
+### Package Management: uv
+
+| Factor | Reasoning |
+|--------|-----------|
+| **Fast installs** | Resolves and installs dependencies significantly faster than pip |
+| **Lockfile** | `uv.lock` pins exact versions for reproducible setup across machines |
+| **Simple workflow** | `uv sync --group dev` creates `.venv` and installs everything in one step |
+| **Drop-in replacement** | Works with existing `pyproject.toml`; pip remains supported as a fallback |
+| **Docker-friendly** | Used in the backend Dockerfile for faster, reproducible container builds |
+
+Typical commands:
+
+```bash
+cd backend
+uv sync --group dev                 # install runtime + dev dependencies
+uv run uvicorn app.main:app --reload
+uv run pytest tests/ -v
+uv add <package>                    # add a new dependency
+```
+
 ### Database: SQLite
 
 | Factor | Reasoning |
@@ -191,7 +211,8 @@ assignment/
 │   │   └── repositories/        # Database access
 │   ├── tests/                   # pytest test suite
 │   ├── seed/                    # Seed script + name files
-│   └── pyproject.toml
+│   ├── pyproject.toml
+│   └── uv.lock                  # uv lockfile for reproducible installs
 ├── frontend/
 │   ├── src/
 │   │   ├── app/                 # Next.js App Router pages

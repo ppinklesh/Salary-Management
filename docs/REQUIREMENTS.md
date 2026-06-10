@@ -93,4 +93,4 @@ When creating or updating an employee, salary fields are accepted on the API but
 - **Usability**: Intuitive UI that an HR Manager can use without training
 - **Responsiveness**: Works on laptop and tablet screen sizes
 - **Data Handling**: Smooth experience with 10,000 employee records (no UI freezing or long waits)
-- **Developer Experience**: One-command setup for new developers via Docker Compose
+- **Developer Experience**: One-command setup for new developers via Docker Compose or `uv sync --group dev`

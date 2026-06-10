@@ -51,66 +51,70 @@ DEPARTMENTS = [
     "Customer Support",
 ]
 
-JOB_TITLES = [
-    "Software Engineer",
-    "Senior Software Engineer",
-    "Staff Engineer",
-    "Engineering Manager",
-    "Product Manager",
-    "Senior Product Manager",
-    "Data Analyst",
-    "Data Scientist",
-    "Marketing Specialist",
-    "Sales Representative",
-    "Account Executive",
-    "HR Specialist",
-    "Financial Analyst",
-    "Operations Manager",
-    "UX Designer",
-    "UI Designer",
-    "Legal Counsel",
-    "Support Specialist",
-    "DevOps Engineer",
-    "QA Engineer",
-]
+SOFTWARE_ENGINEER = "Software Engineer"
+SENIOR_SOFTWARE_ENGINEER = "Senior Software Engineer"
+STAFF_ENGINEER = "Staff Engineer"
+ENGINEERING_MANAGER = "Engineering Manager"
+PRODUCT_MANAGER = "Product Manager"
+SENIOR_PRODUCT_MANAGER = "Senior Product Manager"
+DATA_ANALYST = "Data Analyst"
+DATA_SCIENTIST = "Data Scientist"
+MARKETING_SPECIALIST = "Marketing Specialist"
+SALES_REPRESENTATIVE = "Sales Representative"
+ACCOUNT_EXECUTIVE = "Account Executive"
+HR_SPECIALIST = "HR Specialist"
+FINANCIAL_ANALYST = "Financial Analyst"
+OPERATIONS_MANAGER = "Operations Manager"
+UX_DESIGNER = "UX Designer"
+UI_DESIGNER = "UI Designer"
+LEGAL_COUNSEL = "Legal Counsel"
+SUPPORT_SPECIALIST = "Support Specialist"
+DEVOPS_ENGINEER = "DevOps Engineer"
+QA_ENGINEER = "QA Engineer"
+
+SALARY_RANGES_USD = {
+    SOFTWARE_ENGINEER: (70000, 130000),
+    SENIOR_SOFTWARE_ENGINEER: (120000, 180000),
+    STAFF_ENGINEER: (160000, 250000),
+    ENGINEERING_MANAGER: (140000, 220000),
+    PRODUCT_MANAGER: (90000, 150000),
+    SENIOR_PRODUCT_MANAGER: (130000, 200000),
+    DATA_ANALYST: (60000, 100000),
+    DATA_SCIENTIST: (90000, 160000),
+    MARKETING_SPECIALIST: (50000, 90000),
+    SALES_REPRESENTATIVE: (45000, 80000),
+    ACCOUNT_EXECUTIVE: (60000, 120000),
+    HR_SPECIALIST: (50000, 85000),
+    FINANCIAL_ANALYST: (65000, 110000),
+    OPERATIONS_MANAGER: (70000, 120000),
+    UX_DESIGNER: (70000, 130000),
+    UI_DESIGNER: (60000, 110000),
+    LEGAL_COUNSEL: (90000, 180000),
+    SUPPORT_SPECIALIST: (35000, 65000),
+    DEVOPS_ENGINEER: (80000, 150000),
+    QA_ENGINEER: (60000, 110000),
+}
+
+JOB_TITLES = list(SALARY_RANGES_USD)
 
 DEPT_JOB_MAPPING = {
     "Engineering": [
-        "Software Engineer", "Senior Software Engineer", "Staff Engineer",
-        "Engineering Manager", "DevOps Engineer", "QA Engineer",
+        SOFTWARE_ENGINEER,
+        SENIOR_SOFTWARE_ENGINEER,
+        STAFF_ENGINEER,
+        ENGINEERING_MANAGER,
+        DEVOPS_ENGINEER,
+        QA_ENGINEER,
     ],
-    "Product": ["Product Manager", "Senior Product Manager"],
-    "Marketing": ["Marketing Specialist"],
-    "Sales": ["Sales Representative", "Account Executive"],
-    "Human Resources": ["HR Specialist"],
-    "Finance": ["Financial Analyst"],
-    "Operations": ["Operations Manager"],
-    "Design": ["UX Designer", "UI Designer"],
-    "Legal": ["Legal Counsel"],
-    "Customer Support": ["Support Specialist"],
-}
-
-SALARY_RANGES_USD = {
-    "Software Engineer": (70000, 130000),
-    "Senior Software Engineer": (120000, 180000),
-    "Staff Engineer": (160000, 250000),
-    "Engineering Manager": (140000, 220000),
-    "Product Manager": (90000, 150000),
-    "Senior Product Manager": (130000, 200000),
-    "Data Analyst": (60000, 100000),
-    "Data Scientist": (90000, 160000),
-    "Marketing Specialist": (50000, 90000),
-    "Sales Representative": (45000, 80000),
-    "Account Executive": (60000, 120000),
-    "HR Specialist": (50000, 85000),
-    "Financial Analyst": (65000, 110000),
-    "Operations Manager": (70000, 120000),
-    "UX Designer": (70000, 130000),
-    "UI Designer": (60000, 110000),
-    "Legal Counsel": (90000, 180000),
-    "Support Specialist": (35000, 65000),
-    "DevOps Engineer": (80000, 150000),
-    "QA Engineer": (60000, 110000),
+    "Product": [PRODUCT_MANAGER, SENIOR_PRODUCT_MANAGER],
+    "Marketing": [MARKETING_SPECIALIST],
+    "Sales": [SALES_REPRESENTATIVE, ACCOUNT_EXECUTIVE],
+    "Human Resources": [HR_SPECIALIST],
+    "Finance": [FINANCIAL_ANALYST],
+    "Operations": [OPERATIONS_MANAGER],
+    "Design": [UX_DESIGNER, UI_DESIGNER],
+    "Legal": [LEGAL_COUNSEL],
+    "Customer Support": [SUPPORT_SPECIALIST],
 }
 
 COUNTRY_SALARY_MULTIPLIERS = {
@@ -182,10 +186,11 @@ def generate_data(
         exit_date = None
         exit_reason = None
         if random.random() < INACTIVE_RATE:
-            days_employed = max((date.today() - hire_date).days, 1)
-            exit_offset = random.randint(30, days_employed)
-            exit_date = hire_date + timedelta(days=exit_offset)
-            exit_reason = random.choice(EXIT_REASONS)
+            days_employed = (date.today() - hire_date).days
+            if days_employed >= 30:
+                exit_offset = random.randint(30, days_employed)
+                exit_date = hire_date + timedelta(days=exit_offset)
+                exit_reason = random.choice(EXIT_REASONS)
 
         employee_id = i + 1
         employees.append(

@@ -16,14 +16,29 @@ docker compose up --build
 
 ### Option 2: Local Development
 
-**Backend:**
+**Backend (recommended — [uv](https://docs.astral.sh/uv/)):**
+
+```bash
+cd backend
+uv sync --group dev          # creates .venv and installs deps from uv.lock
+uv run python -m seed.seed   # seed 10,000 employees
+uv run uvicorn app.main:app --reload
+```
+
+Install uv if needed:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Backend (alternative — pip):**
 
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -e ".[dev]"
-python -m seed.seed             # Seed 10,000 employees
+python -m seed.seed
 uvicorn app.main:app --reload
 ```
 
@@ -40,6 +55,13 @@ npm run dev
 
 ```bash
 cd backend
+uv run pytest tests/ -v
+```
+
+Or with an activated pip venv:
+
+```bash
+cd backend
 source venv/bin/activate
 python -m pytest tests/ -v
 ```
@@ -48,7 +70,8 @@ python -m pytest tests/ -v
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.11+, FastAPI, SQLAlchemy 2.x, SQLite |
+| Backend | Python 3.10+, FastAPI, SQLAlchemy 2.x, SQLite |
+| Package manager | [uv](https://docs.astral.sh/uv/) (lockfile: `backend/uv.lock`) |
 | Frontend | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui |
 | Charts | Recharts |
 | Data Table | TanStack Table (server-side pagination) |
@@ -70,7 +93,9 @@ assignment/
 ├── backend/               # FastAPI + SQLite
 │   ├── app/               # Application code (layered architecture)
 │   ├── tests/             # pytest test suite
-│   └── seed/              # 10k employee seed script
+│   ├── seed/              # 10k employee seed script
+│   ├── pyproject.toml     # Python project config
+│   └── uv.lock            # Locked dependencies (uv)
 ├── frontend/              # Next.js + shadcn/ui
 │   └── src/               # App Router pages and components
 ├── docker-compose.yml     # One-command startup
