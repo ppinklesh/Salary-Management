@@ -1,3 +1,3 @@
-from app.models.employee import Employee
+from app.models.employee import Employee, Salary
 
-__all__ = ["Employee"]
+__all__ = ["Employee", "Salary"]

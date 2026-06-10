@@ -3,8 +3,6 @@ from datetime import date
 import pytest
 from fastapi import HTTPException
 
-from app.models.employee import Employee
-from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
 from app.services.employee_service import EmployeeService
 
@@ -26,9 +24,12 @@ class TestEmployeeServiceCreate:
 
         result = service.create_employee(data)
 
-        assert result.id is not None
-        assert result.full_name == "Test User"
-        assert result.email == "test@example.com"
+        assert result["id"] is not None
+        assert result["full_name"] == "Test User"
+        assert result["email"] == "test@example.com"
+        assert result["salary"] == 90000
+        assert result["currency"] == "USD"
+        assert result["employment_type"] == "full_time"
 
     def test_create_duplicate_email_raises(self, db):
         service = EmployeeService(db)
@@ -78,7 +79,7 @@ class TestEmployeeServiceGet:
         )
         created = service.create_employee(data)
 
-        result = service.get_employee(created.id)
+        result = service.get_employee(created["id"])
 
         assert result.full_name == "Find Me"
 
@@ -91,7 +92,7 @@ class TestEmployeeServiceGet:
 
 
 class TestEmployeeServiceUpdate:
-    def test_update_salary(self, db):
+    def test_update_salary_creates_new_record(self, db):
         service = EmployeeService(db)
         data = EmployeeCreate(
             full_name="Update Me",
@@ -107,10 +108,10 @@ class TestEmployeeServiceUpdate:
         created = service.create_employee(data)
 
         update = EmployeeUpdate(salary=75000, job_title="Mid-Level Dev")
-        result = service.update_employee(created.id, update)
+        result = service.update_employee(created["id"], update)
 
-        assert result.salary == 75000
-        assert result.job_title == "Mid-Level Dev"
+        assert result["salary"] == 75000
+        assert result["job_title"] == "Mid-Level Dev"
 
     def test_update_with_no_fields_raises(self, db):
         service = EmployeeService(db)
@@ -128,7 +129,7 @@ class TestEmployeeServiceUpdate:
         created = service.create_employee(data)
 
         with pytest.raises(HTTPException) as exc_info:
-            service.update_employee(created.id, EmployeeUpdate())
+            service.update_employee(created["id"], EmployeeUpdate())
         assert exc_info.value.status_code == 400
 
 
@@ -148,10 +149,10 @@ class TestEmployeeServiceDelete:
         )
         created = service.create_employee(data)
 
-        service.delete_employee(created.id)
+        service.delete_employee(created["id"])
 
         with pytest.raises(HTTPException) as exc_info:
-            service.get_employee(created.id)
+            service.get_employee(created["id"])
         assert exc_info.value.status_code == 404
 
 
@@ -212,4 +213,4 @@ class TestEmployeeServiceList:
         result = service.list_employees(search="alice")
 
         assert result["total"] == 1
-        assert result["data"][0].full_name == "Alice Wonderland"
+        assert result["data"][0]["full_name"] == "Alice Wonderland"

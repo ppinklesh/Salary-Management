@@ -107,6 +107,8 @@ For a production system with concurrent writes, PostgreSQL would be the right ch
 
 ## Data Model
 
+The data model separates **Employee** (identity & work info) from **Salary** (compensation data). This enables salary history tracking and follows proper normalization — salary is a first-class entity in a salary management tool, not just a column.
+
 ### Employee Entity
 
 ```
@@ -117,15 +119,27 @@ employees
 ├── job_title       VARCHAR   NOT NULL, INDEXED (filter + insights)
 ├── department      VARCHAR   NOT NULL, INDEXED (filter + insights)
 ├── country         VARCHAR   NOT NULL, INDEXED (filter + insights)
-├── salary          NUMERIC   NOT NULL (12,2 precision)
-├── currency        VARCHAR   NOT NULL (ISO 4217, e.g., USD, EUR, INR)
-├── employment_type VARCHAR   NOT NULL (full_time, part_time, contract)
 ├── hire_date       DATE      NOT NULL
 ├── created_at      DATETIME  DEFAULT NOW
 └── updated_at      DATETIME  ON UPDATE NOW
 ```
 
-**Index strategy:** Indexes on `full_name`, `job_title`, `department`, and `country` support the primary query patterns (search, filter, aggregation).
+### Salary Entity
+
+```
+salaries
+├── id              INTEGER   PRIMARY KEY, AUTO INCREMENT
+├── employee_id     INTEGER   NOT NULL, FK → employees.id, INDEXED
+├── amount          NUMERIC   NOT NULL (12,2 precision)
+├── currency        VARCHAR   NOT NULL (ISO 4217, e.g., USD, EUR, INR)
+├── employment_type VARCHAR   NOT NULL (full_time, part_time, contract)
+├── effective_date  DATE      NOT NULL, INDEXED
+└── created_at      DATETIME  DEFAULT NOW
+```
+
+**Relationship:** One Employee → Many Salaries. The "current salary" is the record with the latest `effective_date`. When a salary update occurs, a new record is inserted rather than updating in place — this preserves salary history.
+
+**Index strategy:** Indexes on `full_name`, `job_title`, `department`, and `country` support the primary query patterns (search, filter, aggregation). Indexes on `employee_id` and `effective_date` in the salaries table support efficient latest-salary lookups.
 
 ## API Design
 

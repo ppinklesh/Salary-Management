@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import insert, text
 
 from app.database import SessionLocal, create_tables, engine
-from app.models.employee import Employee
+from app.models.employee import Employee, Salary
 
 COUNTRIES = [
     ("United States", "USD"),
@@ -140,10 +140,11 @@ def load_names(filename: str) -> list[str]:
         return [line.strip() for line in f if line.strip()]
 
 
-def generate_employees(
+def generate_data(
     first_names: list[str], last_names: list[str], count: int
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     employees = []
+    salaries = []
     used_emails: set[str] = set()
     start_date = date(2015, 1, 1)
     date_range = (date.today() - start_date).days
@@ -168,28 +169,37 @@ def generate_employees(
 
         base_min, base_max = SALARY_RANGES_USD.get(job_title, (50000, 100000))
         multiplier = COUNTRY_SALARY_MULTIPLIERS.get(country, 1.0)
-        salary = round(random.uniform(base_min, base_max) * multiplier, 2)
+        salary_amount = round(random.uniform(base_min, base_max) * multiplier, 2)
 
         employment_type = random.choices(
             EMPLOYMENT_TYPES, weights=EMPLOYMENT_WEIGHTS, k=1
         )[0]
         hire_date = start_date + timedelta(days=random.randint(0, date_range))
 
+        employee_id = i + 1
         employees.append(
             {
+                "id": employee_id,
                 "full_name": full_name,
                 "email": email,
                 "job_title": job_title,
                 "department": department,
                 "country": country,
-                "salary": salary,
-                "currency": currency,
-                "employment_type": employment_type,
                 "hire_date": hire_date,
             }
         )
 
-    return employees
+        salaries.append(
+            {
+                "employee_id": employee_id,
+                "amount": salary_amount,
+                "currency": currency,
+                "employment_type": employment_type,
+                "effective_date": hire_date,
+            }
+        )
+
+    return employees, salaries
 
 
 def seed():
@@ -202,14 +212,16 @@ def seed():
 
     create_tables()
 
-    employees = generate_employees(first_names, last_names, NUM_EMPLOYEES)
+    employees, salaries = generate_data(first_names, last_names, NUM_EMPLOYEES)
     gen_time = time.perf_counter() - start
-    print(f"  Generated {len(employees)} records in {gen_time:.2f}s")
+    print(f"  Generated {len(employees)} employees + {len(salaries)} salary records in {gen_time:.2f}s")
 
     db = SessionLocal()
     try:
+        db.execute(text("DELETE FROM salaries"))
         db.execute(text("DELETE FROM employees"))
         db.execute(insert(Employee), employees)
+        db.execute(insert(Salary), salaries)
         db.commit()
     finally:
         db.close()

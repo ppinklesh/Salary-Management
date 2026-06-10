@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.models.employee import Employee
+from app.models.employee import Employee, Salary
 
 
 class EmployeeRepository:
@@ -11,7 +11,12 @@ class EmployeeRepository:
         self.db = db
 
     def get_by_id(self, employee_id: int) -> Employee | None:
-        return self.db.get(Employee, employee_id)
+        stmt = (
+            select(Employee)
+            .options(joinedload(Employee.salaries))
+            .where(Employee.id == employee_id)
+        )
+        return self.db.execute(stmt).unique().scalar_one_or_none()
 
     def get_by_email(self, email: str) -> Employee | None:
         stmt = select(Employee).where(Employee.email == email)
@@ -28,7 +33,7 @@ class EmployeeRepository:
         sort_by: str = "id",
         sort_order: str = "asc",
     ) -> tuple[list[Employee], int]:
-        stmt = select(Employee)
+        stmt = select(Employee).options(joinedload(Employee.salaries))
         count_stmt = select(func.count(Employee.id))
 
         if search:
@@ -50,20 +55,39 @@ class EmployeeRepository:
 
         allowed_sort_fields = {
             "id", "full_name", "email", "job_title", "department",
-            "country", "salary", "hire_date", "created_at",
+            "country", "hire_date", "created_at",
         }
-        if sort_by not in allowed_sort_fields:
-            sort_by = "id"
+        if sort_by == "salary":
+            latest_salary = (
+                select(
+                    Salary.employee_id,
+                    Salary.amount,
+                    func.row_number()
+                    .over(partition_by=Salary.employee_id, order_by=Salary.effective_date.desc())
+                    .label("rn"),
+                )
+                .subquery()
+            )
+            latest = select(latest_salary.c.employee_id, latest_salary.c.amount).where(
+                latest_salary.c.rn == 1
+            ).subquery()
+            stmt = stmt.outerjoin(latest, Employee.id == latest.c.employee_id)
+            sort_column = latest.c.amount
+            if sort_order == "desc":
+                sort_column = sort_column.desc()
+            stmt = stmt.order_by(sort_column)
+        else:
+            if sort_by not in allowed_sort_fields:
+                sort_by = "id"
+            sort_column = getattr(Employee, sort_by)
+            if sort_order == "desc":
+                sort_column = sort_column.desc()
+            stmt = stmt.order_by(sort_column)
 
-        sort_column = getattr(Employee, sort_by)
-        if sort_order == "desc":
-            sort_column = sort_column.desc()
-
-        stmt = stmt.order_by(sort_column)
         stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
         total = self.db.execute(count_stmt).scalar() or 0
-        employees = list(self.db.execute(stmt).scalars().all())
+        employees = list(self.db.execute(stmt).unique().scalars().all())
 
         return employees, total
 
@@ -85,16 +109,23 @@ class EmployeeRepository:
         self.db.delete(employee)
         self.db.commit()
 
+    def add_salary(self, salary: Salary) -> Salary:
+        self.db.add(salary)
+        self.db.commit()
+        self.db.refresh(salary)
+        return salary
+
     def get_salary_summary(self) -> dict:
+        latest = self._latest_salary_subquery()
         stmt = select(
-            func.min(Employee.salary).label("min_salary"),
-            func.max(Employee.salary).label("max_salary"),
-            func.avg(Employee.salary).label("avg_salary"),
-            func.count(Employee.id).label("total_employees"),
+            func.min(latest.c.amount).label("min_salary"),
+            func.max(latest.c.amount).label("max_salary"),
+            func.avg(latest.c.amount).label("avg_salary"),
+            func.count(latest.c.employee_id).label("total_employees"),
         )
         result = self.db.execute(stmt).one()
 
-        median = self._get_median_salary()
+        median = self._get_median_salary(latest)
 
         return {
             "min_salary": round(float(result.min_salary or 0), 2),
@@ -104,15 +135,36 @@ class EmployeeRepository:
             "total_employees": result.total_employees,
         }
 
-    def _get_median_salary(self) -> float:
-        count_stmt = select(func.count(Employee.id))
+    def _latest_salary_subquery(self):
+        """Subquery that returns the most recent salary per employee."""
+        ranked = (
+            select(
+                Salary.employee_id,
+                Salary.amount,
+                Salary.currency,
+                Salary.employment_type,
+                func.row_number()
+                .over(partition_by=Salary.employee_id, order_by=Salary.effective_date.desc())
+                .label("rn"),
+            )
+            .subquery()
+        )
+        return select(
+            ranked.c.employee_id,
+            ranked.c.amount,
+            ranked.c.currency,
+            ranked.c.employment_type,
+        ).where(ranked.c.rn == 1).subquery()
+
+    def _get_median_salary(self, latest_sub) -> float:
+        count_stmt = select(func.count(latest_sub.c.employee_id))
         total = self.db.execute(count_stmt).scalar() or 0
 
         if total == 0:
             return 0.0
 
         mid = total // 2
-        stmt = select(Employee.salary).order_by(Employee.salary)
+        stmt = select(latest_sub.c.amount).order_by(latest_sub.c.amount)
 
         if total % 2 == 1:
             stmt = stmt.offset(mid).limit(1)
@@ -123,16 +175,18 @@ class EmployeeRepository:
             return sum(values) / 2
 
     def get_stats_by_country(self) -> list[dict]:
+        latest = self._latest_salary_subquery()
         stmt = (
             select(
                 Employee.country,
-                func.min(Employee.salary).label("min_salary"),
-                func.max(Employee.salary).label("max_salary"),
-                func.avg(Employee.salary).label("avg_salary"),
-                func.count(Employee.id).label("employee_count"),
+                func.min(latest.c.amount).label("min_salary"),
+                func.max(latest.c.amount).label("max_salary"),
+                func.avg(latest.c.amount).label("avg_salary"),
+                func.count(latest.c.employee_id).label("employee_count"),
             )
+            .join(latest, Employee.id == latest.c.employee_id)
             .group_by(Employee.country)
-            .order_by(func.count(Employee.id).desc())
+            .order_by(func.count(latest.c.employee_id).desc())
         )
         results = self.db.execute(stmt).all()
         return [
@@ -147,19 +201,23 @@ class EmployeeRepository:
         ]
 
     def get_stats_by_job_title(self, country: str | None = None) -> list[dict]:
-        stmt = select(
-            Employee.job_title,
-            func.avg(Employee.salary).label("avg_salary"),
-            func.min(Employee.salary).label("min_salary"),
-            func.max(Employee.salary).label("max_salary"),
-            func.count(Employee.id).label("employee_count"),
+        latest = self._latest_salary_subquery()
+        stmt = (
+            select(
+                Employee.job_title,
+                func.avg(latest.c.amount).label("avg_salary"),
+                func.min(latest.c.amount).label("min_salary"),
+                func.max(latest.c.amount).label("max_salary"),
+                func.count(latest.c.employee_id).label("employee_count"),
+            )
+            .join(latest, Employee.id == latest.c.employee_id)
         )
 
         if country:
             stmt = stmt.where(Employee.country == country)
 
         stmt = stmt.group_by(Employee.job_title).order_by(
-            func.avg(Employee.salary).desc()
+            func.avg(latest.c.amount).desc()
         )
         results = self.db.execute(stmt).all()
         return [
@@ -174,16 +232,18 @@ class EmployeeRepository:
         ]
 
     def get_stats_by_department(self) -> list[dict]:
+        latest = self._latest_salary_subquery()
         stmt = (
             select(
                 Employee.department,
-                func.min(Employee.salary).label("min_salary"),
-                func.max(Employee.salary).label("max_salary"),
-                func.avg(Employee.salary).label("avg_salary"),
-                func.count(Employee.id).label("employee_count"),
+                func.min(latest.c.amount).label("min_salary"),
+                func.max(latest.c.amount).label("max_salary"),
+                func.avg(latest.c.amount).label("avg_salary"),
+                func.count(latest.c.employee_id).label("employee_count"),
             )
+            .join(latest, Employee.id == latest.c.employee_id)
             .group_by(Employee.department)
-            .order_by(func.avg(Employee.salary).desc())
+            .order_by(func.avg(latest.c.amount).desc())
         )
         results = self.db.execute(stmt).all()
         return [
