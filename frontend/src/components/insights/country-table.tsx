@@ -10,14 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CountryStats } from "@/lib/api";
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { formatCurrencyCode, getLocalCurrency } from "@/lib/currency";
 
 interface Props {
   data: CountryStats[];
@@ -30,6 +23,9 @@ export function CountryTable({ data }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Salary Breakdown by Country</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Amounts stored and shown in each country&apos;s local currency.
+        </p>
       </CardHeader>
       <CardContent>
         <Table>
@@ -37,29 +33,32 @@ export function CountryTable({ data }: Props) {
             <TableRow>
               <TableHead>Country</TableHead>
               <TableHead className="text-right">Employees</TableHead>
-              <TableHead className="text-right">Min Salary</TableHead>
-              <TableHead className="text-right">Max Salary</TableHead>
-              <TableHead className="text-right">Avg Salary</TableHead>
+              <TableHead className="text-right">Min (local)</TableHead>
+              <TableHead className="text-right">Max (local)</TableHead>
+              <TableHead className="text-right">Avg (local)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((row) => (
-              <TableRow key={row.country}>
-                <TableCell className="font-medium">{row.country}</TableCell>
-                <TableCell className="text-right">
-                  {row.employee_count.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(row.min_salary)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(row.max_salary)}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatCurrency(row.avg_salary)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {sorted.map((row) => {
+              const currency = getLocalCurrency(row.country);
+              return (
+                <TableRow key={row.country}>
+                  <TableCell className="font-medium">{row.country}</TableCell>
+                  <TableCell className="text-right">
+                    {row.employee_count.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrencyCode(row.min_salary, currency)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrencyCode(row.max_salary, currency)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium font-mono">
+                    {formatCurrencyCode(row.avg_salary, currency)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>

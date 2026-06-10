@@ -8,14 +8,17 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountryStats } from "@/lib/api";
+import { chartBarColor } from "@/lib/chart-colors";
+import { convertLocalAmountToUsd, formatUsd, getLocalCurrency } from "@/lib/currency";
 
-function formatCurrency(value: number): string {
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-  return `$${value}`;
+function formatAxisUsd(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return formatUsd(value);
 }
 
 interface Props {
@@ -26,16 +29,25 @@ export function CountryChart({ data }: Props) {
   const chartData = data
     .sort((a, b) => b.avg_salary - a.avg_salary)
     .slice(0, 10)
-    .map((item) => ({
-      name: item.country.length > 12 ? item.country.slice(0, 12) + "…" : item.country,
-      avg_salary: Math.round(item.avg_salary),
-      fullName: item.country,
-    }));
+    .map((item) => {
+      const currency = getLocalCurrency(item.country);
+      const avgUsd = convertLocalAmountToUsd(item.avg_salary, currency);
+      return {
+        name: item.country.length > 12 ? item.country.slice(0, 12) + "…" : item.country,
+        avg_salary: Math.round(avgUsd),
+        fullName: item.country,
+        localAvg: item.avg_salary,
+        currency,
+      };
+    });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Average Salary by Country</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Bars compare countries using USD equivalents (local amounts converted for display).
+        </p>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -48,17 +60,23 @@ export function CountryChart({ data }: Props) {
               textAnchor="end"
               height={60}
             />
-            <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 11 }} />
+            <YAxis tickFormatter={formatAxisUsd} tick={{ fontSize: 11 }} />
             <Tooltip
-              formatter={(value) => [
-                `$${Number(value).toLocaleString()}`,
-                "Avg Salary",
-              ]}
-              labelFormatter={(_, payload) =>
-                payload?.[0]?.payload?.fullName || ""
-              }
+              formatter={(value) => [formatUsd(Number(value)), "Avg (USD equiv.)"]}
+              labelFormatter={(_, payload) => {
+                const row = payload?.[0]?.payload;
+                if (!row) return "";
+                return `${row.fullName} — local avg stored in DB`;
+              }}
             />
-            <Bar dataKey="avg_salary" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="avg_salary" radius={[4, 4, 0, 0]}>
+              {chartData.map((_, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={chartBarColor(index)}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

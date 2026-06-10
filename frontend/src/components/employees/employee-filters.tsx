@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,29 @@ interface Props {
     type: "country" | "department" | "jobTitle" | "status",
     value: string
   ) => void;
+}
+
+const controlClass = "h-8";
+
+function FilterField({
+  label,
+  htmlFor,
+  className,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <Label htmlFor={htmlFor} className="mb-1.5 block h-4 leading-4">
+        {label}
+      </Label>
+      <div className={`${controlClass} flex items-center`}>{children}</div>
+    </div>
+  );
 }
 
 export function EmployeeFilters({
@@ -75,75 +99,100 @@ export function EmployeeFilters({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="relative flex-1 min-w-[200px] max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name..."
-          value={localSearch}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+    <div className="flex flex-wrap items-end gap-3">
+      <FilterField label="Search" htmlFor="employee-search" className="w-[220px]">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="employee-search"
+            placeholder="Search by name..."
+            value={localSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className={`${controlClass} w-full pl-9`}
+          />
+        </div>
+      </FilterField>
 
-      <Select value={status} onValueChange={(v) => v && onFilterChange("status", v)}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="Active" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
-          <SelectItem value="all">All</SelectItem>
-        </SelectContent>
-      </Select>
+      <FilterField label="Status" htmlFor="employee-status" className="w-[160px]">
+        <Select value={status} onValueChange={(v) => v && onFilterChange("status", v)}>
+          <SelectTrigger id="employee-status" className={`${controlClass} w-full`}>
+            <SelectValue placeholder="Active" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+          </SelectContent>
+        </Select>
+      </FilterField>
 
-      <Select value={country || "all"} onValueChange={(v) => onFilterChange("country", !v || v === "all" ? "" : v)}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All Countries" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Countries</SelectItem>
-          {countries.map((c) => (
-            <SelectItem key={c} value={c}>
-              {c}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterField label="Country" htmlFor="employee-country" className="w-[180px]">
+        <Select
+          value={country || "all"}
+          onValueChange={(v) => onFilterChange("country", !v || v === "all" ? "" : v)}
+        >
+          <SelectTrigger id="employee-country" className={`${controlClass} w-full`}>
+            <SelectValue placeholder="All countries" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All countries</SelectItem>
+            {countries.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterField>
 
-      <Select value={department || "all"} onValueChange={(v) => onFilterChange("department", !v || v === "all" ? "" : v)}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All Departments" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Departments</SelectItem>
-          {departments.map((d) => (
-            <SelectItem key={d} value={d}>
-              {d}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterField label="Department" htmlFor="employee-department" className="w-[180px]">
+        <Select
+          value={department || "all"}
+          onValueChange={(v) => onFilterChange("department", !v || v === "all" ? "" : v)}
+        >
+          <SelectTrigger id="employee-department" className={`${controlClass} w-full`}>
+            <SelectValue placeholder="All departments" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All departments</SelectItem>
+            {departments.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterField>
 
-      <Select value={jobTitle || "all"} onValueChange={(v) => onFilterChange("jobTitle", !v || v === "all" ? "" : v)}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All Job Titles" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Job Titles</SelectItem>
-          {jobTitles.map((j) => (
-            <SelectItem key={j} value={j}>
-              {j}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterField label="Job title" htmlFor="employee-job-title" className="w-[180px]">
+        <Select
+          value={jobTitle || "all"}
+          onValueChange={(v) => onFilterChange("jobTitle", !v || v === "all" ? "" : v)}
+        >
+          <SelectTrigger id="employee-job-title" className={`${controlClass} w-full`}>
+            <SelectValue placeholder="All job titles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All job titles</SelectItem>
+            {jobTitles.map((j) => (
+              <SelectItem key={j} value={j}>
+                {j}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterField>
 
       {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
-          <X className="h-4 w-4 mr-1" />
-          Clear
-        </Button>
+        <div>
+          <span className="mb-1.5 block h-4" aria-hidden="true" />
+          <div className={`${controlClass} flex items-center`}>
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-3">
+              <X className="mr-1 h-4 w-4" />
+              Clear
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

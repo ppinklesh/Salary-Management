@@ -1,3 +1,6 @@
+import pytest
+
+
 class TestSalarySummary:
     def test_summary_empty_database(self, client):
         response = client.get("/api/v1/insights/summary")
@@ -16,10 +19,10 @@ class TestSalarySummary:
 
         data = response.json()
         assert data["total_employees"] == 5
-        assert data["min_salary"] == 65000.00
-        assert data["max_salary"] == 1200000.00
-        assert data["avg_salary"] > 0
-        assert data["median_salary"] > 0
+        assert data["min_salary"] == pytest.approx(14371.26, rel=1e-2)
+        assert data["max_salary"] == 110000.00
+        assert data["avg_salary"] == pytest.approx(74309.03, rel=1e-2)
+        assert data["median_salary"] == pytest.approx(81521.74, rel=1e-2)
 
     def test_summary_median_odd_count(self, client, sample_employees_data):
         for emp in sample_employees_data:
@@ -28,7 +31,7 @@ class TestSalarySummary:
         response = client.get("/api/v1/insights/summary")
 
         data = response.json()
-        assert data["median_salary"] == 95000.00
+        assert data["median_salary"] == pytest.approx(81521.74, rel=1e-2)
 
 
 class TestStatsByCountry:
@@ -99,7 +102,7 @@ class TestStatsByJobTitle:
         data = response.json()
         sw_eng = next(item for item in data if item["job_title"] == "Software Engineer")
         assert sw_eng["employee_count"] == 2
-        assert sw_eng["avg_salary"] == 85000.00
+        assert sw_eng["avg_salary"] == pytest.approx(88260.87, rel=1e-2)
 
 
 class TestStatsByDepartment:
@@ -125,5 +128,6 @@ class TestStatsByDepartment:
         data = response.json()
         eng = next(item for item in data if item["department"] == "Engineering")
         assert eng["employee_count"] == 2
-        assert eng["min_salary"] == 75000.00
+        assert eng["min_salary"] == pytest.approx(81521.74, rel=1e-2)
         assert eng["max_salary"] == 95000.00
+        assert eng["avg_salary"] == pytest.approx(88260.87, rel=1e-2)

@@ -1,8 +1,9 @@
 "use client";
 
 import { Employee, PaginatedResponse } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -29,13 +30,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-function formatCurrency(value: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { convertLocalAmountToUsd, formatCurrencyCode, formatUsd } from "@/lib/currency";
 
 function formatEmploymentType(type: string): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -129,15 +124,22 @@ export function EmployeeTable({
                   <TableCell>{emp.job_title}</TableCell>
                   <TableCell>{emp.department}</TableCell>
                   <TableCell>{emp.country}</TableCell>
-                  <TableCell className="font-mono">
-                    {formatCurrency(emp.salary, emp.currency)}
+                  <TableCell>
+                    <div className="font-mono">
+                      {formatCurrencyCode(emp.salary, emp.currency)}
+                    </div>
+                    {emp.currency !== "USD" && (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        ≈ {formatUsd(convertLocalAmountToUsd(emp.salary, emp.currency))} USD
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     {emp.is_active ? (
-                      <Badge variant="default">Active</Badge>
+                      <Badge variant="success">Active</Badge>
                     ) : (
                       <div className="space-y-1">
-                        <Badge variant="secondary">Inactive</Badge>
+                        <Badge variant="warning">Inactive</Badge>
                         {emp.exit_reason && (
                           <p className="text-xs text-muted-foreground">
                             {formatExitReason(emp.exit_reason)}
@@ -148,17 +150,26 @@ export function EmployeeTable({
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={emp.employment_type === "full_time" ? "default" : "secondary"}
+                      variant={
+                        emp.employment_type === "full_time"
+                          ? "default"
+                          : emp.employment_type === "contractor"
+                            ? "outline"
+                            : "secondary"
+                      }
                     >
                       {formatEmploymentType(emp.employment_type)}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                      <DropdownMenuTrigger
+                        className={cn(
+                          buttonVariants({ variant: "ghost", size: "icon" }),
+                          "h-8 w-8"
+                        )}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {emp.is_active ? (

@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.currency import COUNTRY_CURRENCY
 from app.models.employee import Employee, Salary
 from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.employee import EmployeeCreate, EmployeeOffboard, EmployeeUpdate
@@ -87,6 +88,8 @@ class EmployeeService:
         )
         employee = self.repo.create(employee)
 
+        self._validate_salary_currency(data.country, data.currency)
+
         salary = Salary(
             employee_id=employee.id,
             amount=data.salary,
@@ -130,10 +133,14 @@ class EmployeeService:
 
         current = employee.current_salary
         if salary_updates and current:
+            country = update_data.get("country", employee.country)
+            currency = salary_updates.get("currency", current.currency)
+            self._validate_salary_currency(country, currency)
+
             new_salary = Salary(
                 employee_id=employee.id,
                 amount=salary_updates.get("salary", current.amount),
-                currency=salary_updates.get("currency", current.currency),
+                currency=currency,
                 employment_type=salary_updates.get(
                     "employment_type", current.employment_type
                 ),
@@ -193,3 +200,12 @@ class EmployeeService:
             "currency": salary.currency if salary else None,
             "employment_type": salary.employment_type if salary else None,
         }
+
+    @staticmethod
+    def _validate_salary_currency(country: str, currency: str) -> None:
+        expected = COUNTRY_CURRENCY.get(country)
+        if expected and currency != expected:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Salary currency must be {expected} for employees in {country}",
+            )

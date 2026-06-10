@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.currency import local_to_usd
 from app.models.employee import Employee, Salary
 
 
@@ -148,24 +149,37 @@ class EmployeeRepository:
         return salary
 
     def get_salary_summary(self) -> dict:
-        latest = self._active_employee_latest_salaries()
-        stmt = select(
-            func.min(latest.c.amount).label("min_salary"),
-            func.max(latest.c.amount).label("max_salary"),
-            func.avg(latest.c.amount).label("avg_salary"),
-            func.count(latest.c.employee_id).label("total_employees"),
-        )
-        result = self.db.execute(stmt).one()
+        usd_amounts = self._active_salary_amounts_usd()
+        if not usd_amounts:
+            return {
+                "min_salary": 0.0,
+                "max_salary": 0.0,
+                "avg_salary": 0.0,
+                "median_salary": 0.0,
+                "total_employees": 0,
+            }
 
-        median = self._get_median_salary(latest)
+        usd_amounts.sort()
+        total = len(usd_amounts)
+        mid = total // 2
+        if total % 2 == 1:
+            median = usd_amounts[mid]
+        else:
+            median = (usd_amounts[mid - 1] + usd_amounts[mid]) / 2
 
         return {
-            "min_salary": round(float(result.min_salary or 0), 2),
-            "max_salary": round(float(result.max_salary or 0), 2),
-            "avg_salary": round(float(result.avg_salary or 0), 2),
-            "median_salary": round(float(median), 2),
-            "total_employees": result.total_employees,
+            "min_salary": round(min(usd_amounts), 2),
+            "max_salary": round(max(usd_amounts), 2),
+            "avg_salary": round(sum(usd_amounts) / total, 2),
+            "median_salary": round(median, 2),
+            "total_employees": total,
         }
+
+    def _active_salary_amounts_usd(self) -> list[float]:
+        latest = self._active_employee_latest_salaries()
+        stmt = select(latest.c.amount, latest.c.currency)
+        rows = self.db.execute(stmt).all()
+        return [local_to_usd(float(row.amount), row.currency) for row in rows]
 
     def _latest_salary_subquery(self):
         """Subquery that returns the most recent salary per employee."""
@@ -259,10 +273,8 @@ class EmployeeRepository:
         stmt = (
             select(
                 Employee.job_title,
-                func.avg(latest.c.amount).label("avg_salary"),
-                func.min(latest.c.amount).label("min_salary"),
-                func.max(latest.c.amount).label("max_salary"),
-                func.count(latest.c.employee_id).label("employee_count"),
+                latest.c.amount,
+                latest.c.currency,
             )
             .join(latest, Employee.id == latest.c.employee_id)
             .where(Employee.exit_date.is_(None))
@@ -271,19 +283,23 @@ class EmployeeRepository:
         if country:
             stmt = stmt.where(Employee.country == country)
 
-        stmt = stmt.group_by(Employee.job_title).order_by(
-            func.avg(latest.c.amount).desc()
-        )
-        results = self.db.execute(stmt).all()
+        rows = self.db.execute(stmt).all()
+        grouped: dict[str, list[float]] = {}
+        for row in rows:
+            usd = local_to_usd(float(row.amount), row.currency)
+            grouped.setdefault(row.job_title, []).append(usd)
+
         return [
             {
-                "job_title": row.job_title,
-                "avg_salary": round(float(row.avg_salary), 2),
-                "min_salary": round(float(row.min_salary), 2),
-                "max_salary": round(float(row.max_salary), 2),
-                "employee_count": row.employee_count,
+                "job_title": title,
+                "avg_salary": round(sum(amounts) / len(amounts), 2),
+                "min_salary": round(min(amounts), 2),
+                "max_salary": round(max(amounts), 2),
+                "employee_count": len(amounts),
             }
-            for row in results
+            for title, amounts in sorted(
+                grouped.items(), key=lambda item: sum(item[1]) / len(item[1]), reverse=True
+            )
         ]
 
     def get_stats_by_department(self) -> list[dict]:
@@ -291,26 +307,29 @@ class EmployeeRepository:
         stmt = (
             select(
                 Employee.department,
-                func.min(latest.c.amount).label("min_salary"),
-                func.max(latest.c.amount).label("max_salary"),
-                func.avg(latest.c.amount).label("avg_salary"),
-                func.count(latest.c.employee_id).label("employee_count"),
+                latest.c.amount,
+                latest.c.currency,
             )
             .join(latest, Employee.id == latest.c.employee_id)
             .where(Employee.exit_date.is_(None))
-            .group_by(Employee.department)
-            .order_by(func.avg(latest.c.amount).desc())
         )
-        results = self.db.execute(stmt).all()
+        rows = self.db.execute(stmt).all()
+        grouped: dict[str, list[float]] = {}
+        for row in rows:
+            usd = local_to_usd(float(row.amount), row.currency)
+            grouped.setdefault(row.department, []).append(usd)
+
         return [
             {
-                "department": row.department,
-                "min_salary": round(float(row.min_salary), 2),
-                "max_salary": round(float(row.max_salary), 2),
-                "avg_salary": round(float(row.avg_salary), 2),
-                "employee_count": row.employee_count,
+                "department": department,
+                "min_salary": round(min(amounts), 2),
+                "max_salary": round(max(amounts), 2),
+                "avg_salary": round(sum(amounts) / len(amounts), 2),
+                "employee_count": len(amounts),
             }
-            for row in results
+            for department, amounts in sorted(
+                grouped.items(), key=lambda item: sum(item[1]) / len(item[1]), reverse=True
+            )
         ]
 
     def get_distinct_countries(self) -> list[str]:

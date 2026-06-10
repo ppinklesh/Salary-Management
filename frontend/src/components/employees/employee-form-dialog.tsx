@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -18,23 +21,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api, Employee, EmployeeFormData } from "@/lib/api";
+import {
+  COUNTRY_CURRENCY,
+  convertLocalToUsd,
+  formatUsd,
+  getLocalCurrency,
+} from "@/lib/currency";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Briefcase, Loader2, MapPin, User } from "lucide-react";
 
-const COUNTRIES_CURRENCIES = [
-  { country: "United States", currency: "USD" },
-  { country: "United Kingdom", currency: "GBP" },
-  { country: "Germany", currency: "EUR" },
-  { country: "France", currency: "EUR" },
-  { country: "India", currency: "INR" },
-  { country: "Canada", currency: "CAD" },
-  { country: "Australia", currency: "AUD" },
-  { country: "Japan", currency: "JPY" },
-  { country: "Brazil", currency: "BRL" },
-  { country: "Singapore", currency: "SGD" },
-  { country: "Netherlands", currency: "EUR" },
-  { country: "Sweden", currency: "SEK" },
-];
+const COUNTRIES = Object.keys(COUNTRY_CURRENCY);
 
 const DEPARTMENTS = [
   "Engineering", "Product", "Marketing", "Sales", "Human Resources",
@@ -70,14 +67,69 @@ const defaultForm: EmployeeFormData = {
   hire_date: new Date().toISOString().split("T")[0],
 };
 
+function FormSection({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="rounded-lg bg-primary/10 p-2 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <h3 className="text-sm font-medium">{title}</h3>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
+    </section>
+  );
+}
+
+function FormField({
+  label,
+  htmlFor,
+  error,
+  className,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  error?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: Props) {
   const [form, setForm] = useState<EmployeeFormData>(defaultForm);
+  const [localSalary, setLocalSalary] = useState(0);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const isEdit = !!employee;
+  const localCurrency = form.country ? getLocalCurrency(form.country) : null;
+  const usdEquivalent =
+    form.country && localSalary > 0
+      ? Math.round(convertLocalToUsd(localSalary, form.country) * 100) / 100
+      : 0;
 
-  useEffect(() => {
+    useEffect(() => {
     if (employee) {
       setForm({
         full_name: employee.full_name,
@@ -90,8 +142,10 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
         employment_type: employee.employment_type,
         hire_date: employee.hire_date,
       });
+      setLocalSalary(employee.salary);
     } else {
       setForm(defaultForm);
+      setLocalSalary(0);
     }
     setErrors({});
   }, [employee, open]);
@@ -104,7 +158,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
     if (!form.job_title) errs.job_title = "Job title is required";
     if (!form.department) errs.department = "Department is required";
     if (!form.country) errs.country = "Country is required";
-    if (!form.salary || form.salary <= 0) errs.salary = "Salary must be positive";
+    if (!localSalary || localSalary <= 0) errs.salary = "Salary must be positive";
     if (!form.hire_date) errs.hire_date = "Hire date is required";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -115,17 +169,23 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
     if (!validate()) return;
 
     setSaving(true);
+    const payload = {
+      ...form,
+      salary: localSalary,
+      currency: getLocalCurrency(form.country),
+    };
     try {
       if (isEdit && employee) {
-        await api.employees.update(employee.id, form);
+        await api.employees.update(employee.id, payload);
         toast.success(`${form.full_name} updated successfully`);
       } else {
-        await api.employees.create(form);
+        await api.employees.create(payload);
         toast.success(`${form.full_name} added successfully`);
       }
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save employee");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save employee";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -133,35 +193,41 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
 
   const handleCountryChange = (value: string | null) => {
     if (!value) return;
-    const match = COUNTRIES_CURRENCIES.find((c) => c.country === value);
-    setForm((prev) => ({
-      ...prev,
-      country: value,
-      currency: match?.currency || prev.currency,
-    }));
+    setForm((prev) => ({ ...prev, country: value }));
   };
+
+  const salaryLabel = localCurrency
+    ? `Annual salary (${localCurrency})`
+    : "Annual salary (local currency)";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Employee" : "Add Employee"}</DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? "Update profile, role, and compensation details for this employee."
+              : "Create a new employee record with role and salary information."}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="full_name">Full Name</Label>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <FormSection
+            icon={User}
+            title="Personal details"
+            description="Basic contact information for the employee."
+          >
+            <FormField label="Full name" htmlFor="full_name" error={errors.full_name} className="sm:col-span-2">
               <Input
                 id="full_name"
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                 placeholder="John Doe"
               />
-              {errors.full_name && <p className="text-sm text-destructive mt-1">{errors.full_name}</p>}
-            </div>
+            </FormField>
 
-            <div className="col-span-2">
-              <Label htmlFor="email">Email</Label>
+            <FormField label="Email" htmlFor="email" error={errors.email} className="sm:col-span-2">
               <Input
                 id="email"
                 type="email"
@@ -169,30 +235,41 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="john.doe@acme.com"
               />
-              {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
-            </div>
+            </FormField>
 
-            <div>
-              <Label>Country</Label>
-              <Select value={form.country} onValueChange={handleCountryChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select country" />
+            <FormField label="Hire date" htmlFor="hire_date" error={errors.hire_date}>
+              <Input
+                id="hire_date"
+                type="date"
+                value={form.hire_date}
+                onChange={(e) => setForm({ ...form, hire_date: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Employment type">
+              <Select value={form.employment_type} onValueChange={(v) => v && setForm({ ...form, employment_type: v })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES_CURRENCIES.map((c) => (
-                    <SelectItem key={c.country} value={c.country}>
-                      {c.country}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="full_time">Full Time</SelectItem>
+                  <SelectItem value="part_time">Part Time</SelectItem>
+                  <SelectItem value="contract">Contract</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.country && <p className="text-sm text-destructive mt-1">{errors.country}</p>}
-            </div>
+            </FormField>
+          </FormSection>
 
-            <div>
-              <Label>Department</Label>
+          <Separator />
+
+          <FormSection
+            icon={Briefcase}
+            title="Role & department"
+            description="Where they work and what they do."
+          >
+            <FormField label="Department" error={errors.department}>
               <Select value={form.department} onValueChange={(v) => v && setForm({ ...form, department: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,13 +280,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
                   ))}
                 </SelectContent>
               </Select>
-              {errors.department && <p className="text-sm text-destructive mt-1">{errors.department}</p>}
-            </div>
+            </FormField>
 
-            <div className="col-span-2">
-              <Label>Job Title</Label>
+            <FormField label="Job title" error={errors.job_title}>
               <Select value={form.job_title} onValueChange={(v) => v && setForm({ ...form, job_title: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select job title" />
                 </SelectTrigger>
                 <SelectContent>
@@ -220,63 +295,75 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
                   ))}
                 </SelectContent>
               </Select>
-              {errors.job_title && <p className="text-sm text-destructive mt-1">{errors.job_title}</p>}
-            </div>
+            </FormField>
+          </FormSection>
 
-            <div>
-              <Label htmlFor="salary">Salary</Label>
-              <Input
-                id="salary"
-                type="number"
-                value={form.salary || ""}
-                onChange={(e) => setForm({ ...form, salary: parseFloat(e.target.value) || 0 })}
-                placeholder="95000"
-                min="0"
-                step="1000"
-              />
-              {errors.salary && <p className="text-sm text-destructive mt-1">{errors.salary}</p>}
-            </div>
+          <Separator />
 
-            <div>
-              <Label>Employment Type</Label>
-              <Select value={form.employment_type} onValueChange={(v) => v && setForm({ ...form, employment_type: v })}>
-                <SelectTrigger>
-                  <SelectValue />
+          <FormSection
+            icon={MapPin}
+            title="Location & compensation"
+            description="Enter salary in the employee's local currency. The exact amount is stored — USD is shown only as a reference."
+          >
+            <FormField label="Country" error={errors.country}>
+              <Select value={form.country} onValueChange={handleCountryChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select country" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="full_time">Full Time</SelectItem>
-                  <SelectItem value="part_time">Part Time</SelectItem>
-                  <SelectItem value="contract">Contract</SelectItem>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country} ({getLocalCurrency(country)})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
 
-            <div>
-              <Label htmlFor="hire_date">Hire Date</Label>
-              <Input
-                id="hire_date"
-                type="date"
-                value={form.hire_date}
-                onChange={(e) => setForm({ ...form, hire_date: e.target.value })}
-              />
-              {errors.hire_date && <p className="text-sm text-destructive mt-1">{errors.hire_date}</p>}
-            </div>
+            <FormField
+              label={salaryLabel}
+              htmlFor="local_salary"
+              error={errors.salary}
+              className="sm:col-span-2"
+            >
+              <div className="relative">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  {localCurrency ?? "—"}
+                </span>
+                <Input
+                  id="local_salary"
+                  type="number"
+                  value={localSalary || ""}
+                  onChange={(e) => setLocalSalary(parseFloat(e.target.value) || 0)}
+                  placeholder={localCurrency === "INR" ? "1500000" : "95000"}
+                  min="0"
+                  step={localCurrency === "JPY" ? "10000" : "1000"}
+                  disabled={!form.country}
+                  className={cn("pl-14", !form.country && "bg-muted")}
+                />
+              </div>
+              {!form.country && (
+                <p className="text-xs text-muted-foreground">Select a country first to enter salary.</p>
+              )}
+              {form.country && localSalary > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  USD value will be{" "}
+                  <span className="font-medium text-foreground">{formatUsd(usdEquivalent)}</span>
+                  {localCurrency !== "USD" && " (approx. exchange rate)"}
+                </p>
+              )}
+            </FormField>
+          </FormSection>
 
-            <div>
-              <Label>Currency</Label>
-              <Input value={form.currency} disabled className="bg-muted" />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEdit ? "Update" : "Add"} Employee
+              {isEdit ? "Save changes" : "Add employee"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

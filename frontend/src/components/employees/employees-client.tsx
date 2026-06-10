@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, Employee, EmployeeOffboardData, PaginatedResponse } from "@/lib/api";
 import { EmployeeTable } from "./employee-table";
 import { EmployeeFormDialog } from "./employee-form-dialog";
@@ -12,6 +13,10 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function EmployeesClient() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [data, setData] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -55,9 +60,26 @@ export function EmployeesClient() {
     fetchEmployees();
   }, [fetchEmployees]);
 
+  useEffect(() => {
+    if (searchParams.get("add") === "1") {
+      setEditingEmployee(null);
+      setFormOpen(true);
+    }
+  }, [searchParams]);
+
   const handleCreate = () => {
     setEditingEmployee(null);
     setFormOpen(true);
+  };
+
+  const handleFormOpenChange = (open: boolean) => {
+    setFormOpen(open);
+    if (!open) {
+      setEditingEmployee(null);
+      if (searchParams.get("add")) {
+        router.replace(pathname);
+      }
+    }
   };
 
   const handleEdit = (employee: Employee) => {
@@ -68,6 +90,9 @@ export function EmployeesClient() {
   const handleFormSuccess = () => {
     setFormOpen(false);
     setEditingEmployee(null);
+    if (searchParams.get("add")) {
+      router.replace(pathname);
+    }
     fetchEmployees();
   };
 
@@ -165,7 +190,7 @@ export function EmployeesClient() {
 
       <EmployeeFormDialog
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={handleFormOpenChange}
         employee={editingEmployee}
         onSuccess={handleFormSuccess}
       />

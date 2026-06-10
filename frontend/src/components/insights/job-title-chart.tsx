@@ -8,9 +8,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { JobTitleStats } from "@/lib/api";
+import { chartBarColor } from "@/lib/chart-colors";
 
 function formatCurrency(value: number): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -37,6 +39,7 @@ export function JobTitleChart({ data }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Average Salary by Job Title (Top 12)</CardTitle>
+        <p className="text-xs text-muted-foreground">USD equivalents for cross-role comparison.</p>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={350}>
@@ -62,7 +65,14 @@ export function JobTitleChart({ data }: Props) {
                 `${payload?.[0]?.payload?.fullName} (${payload?.[0]?.payload?.count} employees)`
               }
             />
-            <Bar dataKey="avg_salary" fill="hsl(var(--chart-3))" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="avg_salary" radius={[0, 4, 4, 0]}>
+              {chartData.map((_, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={chartBarColor(index)}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import insert, text
 
+from app.currency import usd_to_local
 from app.database import SessionLocal, create_tables, engine
 from app.models.employee import Employee, Salary
 
@@ -176,7 +177,10 @@ def generate_data(
 
         base_min, base_max = SALARY_RANGES_USD.get(job_title, (50000, 100000))
         multiplier = COUNTRY_SALARY_MULTIPLIERS.get(country, 1.0)
-        salary_amount = round(random.uniform(base_min, base_max) * multiplier, 2)
+        usd_amount = random.uniform(base_min, base_max) * multiplier
+        salary_amount = round(usd_to_local(usd_amount, currency), 2)
+        if currency == "JPY":
+            salary_amount = round(salary_amount)
 
         employment_type = random.choices(
             EMPLOYMENT_TYPES, weights=EMPLOYMENT_WEIGHTS, k=1
