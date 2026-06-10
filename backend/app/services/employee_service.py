@@ -15,7 +15,11 @@ class EmployeeService:
         self.db = db
         self.repo = EmployeeRepository(db)
 
-    def get_employee(self, employee_id: int) -> Employee:
+    def get_employee(self, employee_id: int) -> dict:
+        employee = self._get_or_404(employee_id)
+        return self._to_response(employee, employee.current_salary)
+
+    def _get_or_404(self, employee_id: int) -> Employee:
         employee = self.repo.get_by_id(employee_id)
         if not employee:
             raise HTTPException(
@@ -110,7 +114,7 @@ class EmployeeService:
         return self._to_response(employee, salary)
 
     def update_employee(self, employee_id: int, data: EmployeeUpdate) -> dict:
-        employee = self.get_employee(employee_id)
+        employee = self._get_or_404(employee_id)
 
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
@@ -150,7 +154,7 @@ class EmployeeService:
         return self._to_response(employee, employee.current_salary if employee else None)
 
     def delete_employee(self, employee_id: int) -> None:
-        employee = self.get_employee(employee_id)
+        employee = self._get_or_404(employee_id)
         self.repo.delete(employee)
 
     def _to_response(self, employee: Employee, salary: Salary | None) -> dict:

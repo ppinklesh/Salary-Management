@@ -81,7 +81,9 @@ class TestEmployeeServiceGet:
 
         result = service.get_employee(created["id"])
 
-        assert result.full_name == "Find Me"
+        assert result["full_name"] == "Find Me"
+        assert result["salary"] == 60000
+        assert result["currency"] == "GBP"
 
     def test_get_nonexistent_employee_raises(self, db):
         service = EmployeeService(db)
