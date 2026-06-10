@@ -18,9 +18,10 @@ interface Props {
   country: string;
   department: string;
   jobTitle: string;
+  status: string;
   onSearch: (value: string) => void;
   onFilterChange: (
-    type: "country" | "department" | "jobTitle",
+    type: "country" | "department" | "jobTitle" | "status",
     value: string
   ) => void;
 }
@@ -30,6 +31,7 @@ export function EmployeeFilters({
   country,
   department,
   jobTitle,
+  status,
   onSearch,
   onFilterChange,
 }: Props) {
@@ -61,13 +63,14 @@ export function EmployeeFilters({
     debounceRef.current = setTimeout(() => onSearch(value), 300);
   };
 
-  const hasFilters = country || department || jobTitle || search;
+  const hasFilters = country || department || jobTitle || search || status !== "active";
 
   const clearFilters = () => {
     onSearch("");
     onFilterChange("country", "");
     onFilterChange("department", "");
     onFilterChange("jobTitle", "");
+    onFilterChange("status", "active");
     setLocalSearch("");
   };
 
@@ -82,6 +85,17 @@ export function EmployeeFilters({
           className="pl-9"
         />
       </div>
+
+      <Select value={status} onValueChange={(v) => v && onFilterChange("status", v)}>
+        <SelectTrigger className="w-[160px]">
+          <SelectValue placeholder="Active" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="active">Active</SelectItem>
+          <SelectItem value="inactive">Inactive</SelectItem>
+          <SelectItem value="all">All</SelectItem>
+        </SelectContent>
+      </Select>
 
       <Select value={country || "all"} onValueChange={(v) => onFilterChange("country", !v || v === "all" ? "" : v)}>
         <SelectTrigger className="w-[180px]">

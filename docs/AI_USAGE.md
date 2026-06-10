@@ -23,7 +23,7 @@
 ### 2. Backend Development (AI-Accelerated, Human-Reviewed)
 
 **What I did manually:**
-- Designed the Employee data model and chose which fields to include
+- Designed the two-table data model (`employees` + `salaries`) and chose which fields belong in each
 - Defined the API contract (endpoints, request/response shapes)
 - Made decisions on pagination strategy, filter approach, and error handling
 - Reviewed all generated code for correctness, edge cases, and clean code standards

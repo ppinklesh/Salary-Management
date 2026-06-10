@@ -52,11 +52,11 @@ python -m pytest tests/ -v
 | Frontend | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui |
 | Charts | Recharts |
 | Data Table | TanStack Table (server-side pagination) |
-| Testing | pytest (40 tests, <1s) |
+| Testing | pytest (43 tests, <1s) |
 
 ## Features
 
-- **Employee CRUD**: Add, view, edit, delete employees with validation
+- **Employee CRUD**: Add, view, edit, offboard, and rehire employees with validation
 - **Salary Dashboard**: KPI cards, bar charts by country/department/job title
 - **Search & Filter**: Name search with debounce, country/department/title filters
 - **Pagination**: Server-side pagination for 10,000 records

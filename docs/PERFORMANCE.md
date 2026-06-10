@@ -17,9 +17,10 @@ session.commit()
 
 **We use:**
 ```python
-# Fast: Single INSERT with 10,000 value sets
+# Fast: Single INSERT with 10,000 value sets per table
 from sqlalchemy import insert
 session.execute(insert(Employee), list_of_employee_dicts)
+session.execute(insert(Salary), list_of_salary_dicts)
 session.commit()
 ```
 
@@ -36,7 +37,7 @@ session.commit()
 - Target execution time: under 3 seconds for 10,000 records
 
 ### Idempotency
-The seed script truncates the table before inserting, making it safe to run repeatedly without accumulating duplicate data.
+The seed script truncates both `employees` and `salaries` before inserting, making it safe to run repeatedly without accumulating duplicate data.
 
 ---
 
@@ -46,6 +47,8 @@ The seed script truncates the table before inserting, making it safe to run repe
 
 Indexes are placed on columns that appear in WHERE clauses, ORDER BY, and GROUP BY:
 
+**`employees` table**
+
 | Column | Used For |
 |--------|----------|
 | `full_name` | Search (`WHERE full_name LIKE '%john%'`) |
@@ -54,27 +57,43 @@ Indexes are placed on columns that appear in WHERE clauses, ORDER BY, and GROUP 
 | `department` | Filter + GROUP BY for insights |
 | `email` | UNIQUE constraint (implicit index) |
 
+**`salaries` table**
+
+| Column | Used For |
+|--------|----------|
+| `employee_id` | Join to employees; latest-salary lookups |
+| `effective_date` | Ordering to determine current salary per employee |
+
 ### SQL-Level Aggregation
 
 Salary insights (min, max, avg) are computed in SQL, not in Python:
 
 **Instead of:**
 ```python
-# Slow: Load all rows into Python, then compute
-employees = session.query(Employee).all()
-avg_salary = sum(e.salary for e in employees) / len(employees)
+# Slow: Load all employees and salaries into Python, then compute
+employees = session.query(Employee).options(joinedload(Employee.salaries)).all()
+avg_salary = sum(e.current_salary.amount for e in employees if e.current_salary) / len(employees)
 ```
 
 **We use:**
 ```python
-# Fast: Database computes the aggregate
-from sqlalchemy import func
-result = session.query(
-    func.min(Employee.salary),
-    func.max(Employee.salary),
-    func.avg(Employee.salary),
-    func.count(Employee.id)
-).filter(Employee.country == country).first()
+# Fast: Database computes the aggregate on latest salaries per employee
+from sqlalchemy import func, select
+
+latest_salaries = (
+    select(Salary.amount)
+    .distinct(Salary.employee_id)
+    .order_by(Salary.employee_id, Salary.effective_date.desc())
+    .subquery()
+)
+result = session.execute(
+    select(
+        func.min(latest_salaries.c.amount),
+        func.max(latest_salaries.c.amount),
+        func.avg(latest_salaries.c.amount),
+        func.count(latest_salaries.c.amount),
+    )
+).one()
 ```
 
 ### Why This Matters

@@ -20,9 +20,14 @@ Build a web-based employee salary management tool for ACME org, replacing the cu
 - **Add** new employees via a web form with validation
 - **View** employees in a searchable, filterable, paginated data table
 - **Update** existing employee records through an edit form
-- **Delete** employees with a confirmation step
+- **Offboard** employees with exit date and reason (records are retained, not deleted)
+- **Rehire** previously offboarded employees when they return
 
-**Employee data captured:**
+**Data model — two tables:**
+
+Compensation is stored separately from employee identity so salary history can be tracked. The API exposes a flattened employee view (current salary fields merged in), but persistence uses two normalized tables.
+
+**`employees` table — identity & work info:**
 
 | Field | Rationale |
 |-------|-----------|
@@ -31,10 +36,21 @@ Build a web-based employee salary management tool for ACME org, replacing the cu
 | Job Title | Required — drives salary benchmarking and insights |
 | Department | Groups employees for organizational analysis |
 | Country | Required — multi-country salary comparison is a core use case |
-| Salary | Required — the central data point of the tool |
+| Hire Date | Standard HR data; enables future tenure-based analysis |
+| Exit Date | Nullable — set when an employee leaves; NULL means currently employed |
+| Exit Reason | Why the employee left (terminated, resigned, retired, layoff, end_of_contract, other) |
+
+**`salaries` table — compensation (one employee → many salary records):**
+
+| Field | Rationale |
+|-------|-----------|
+| Employee ID | Foreign key linking each salary record to an employee |
+| Amount | Required — the central data point of the tool |
 | Currency | Multi-country means multi-currency; avoids ambiguity in salary interpretation |
 | Employment Type | Full-time vs part-time vs contract affects salary context |
-| Hire Date | Standard HR data; enables future tenure-based analysis |
+| Effective Date | When this salary took effect; latest record is treated as current pay |
+
+When creating or updating an employee, salary fields are accepted on the API but stored in `salaries`. Updates insert a new salary row (preserving history) rather than overwriting the previous amount.
 
 ### 2. Salary Insights
 

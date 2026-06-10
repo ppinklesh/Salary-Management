@@ -120,6 +120,8 @@ employees
 ├── department      VARCHAR   NOT NULL, INDEXED (filter + insights)
 ├── country         VARCHAR   NOT NULL, INDEXED (filter + insights)
 ├── hire_date       DATE      NOT NULL
+├── exit_date       DATE      NULL (NULL = active employee)
+├── exit_reason     VARCHAR   NULL (terminated, resigned, retired, layoff, end_of_contract, other)
 ├── created_at      DATETIME  DEFAULT NOW
 └── updated_at      DATETIME  ON UPDATE NOW
 ```
@@ -139,6 +141,8 @@ salaries
 
 **Relationship:** One Employee → Many Salaries. The "current salary" is the record with the latest `effective_date`. When a salary update occurs, a new record is inserted rather than updating in place — this preserves salary history.
 
+**Employment lifecycle:** Employees are never hard-deleted. Offboarding sets `exit_date` and `exit_reason`. Active employees have `exit_date IS NULL`. Salary insights and default list views include active employees only.
+
 **Index strategy:** Indexes on `full_name`, `job_title`, `department`, and `country` support the primary query patterns (search, filter, aggregation). Indexes on `employee_id` and `effective_date` in the salaries table support efficient latest-salary lookups.
 
 ## API Design
@@ -146,11 +150,12 @@ salaries
 RESTful API versioned under `/api/v1/`:
 
 ### Employee CRUD
-- `GET    /api/v1/employees`       — List with pagination, search, filter
-- `GET    /api/v1/employees/{id}`  — Get single employee
-- `POST   /api/v1/employees`       — Create employee
-- `PUT    /api/v1/employees/{id}`  — Update employee
-- `DELETE /api/v1/employees/{id}`  — Delete employee
+- `GET    /api/v1/employees`                    — List with pagination, search, filter, status
+- `GET    /api/v1/employees/{id}`               — Get single employee
+- `POST   /api/v1/employees`                    — Create employee
+- `PUT    /api/v1/employees/{id}`               — Update active employee
+- `POST   /api/v1/employees/{id}/offboard`      — Offboard employee (soft exit)
+- `POST   /api/v1/employees/{id}/rehire`        — Rehire offboarded employee
 
 ### Salary Insights
 - `GET /api/v1/insights/summary`        — Global min/max/avg/median + headcount

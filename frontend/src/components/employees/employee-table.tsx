@@ -17,7 +17,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  MoreHorizontal,
+  Pencil,
+  UserMinus,
+  UserPlus,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 function formatCurrency(value: number, currency: string): string {
   return new Intl.NumberFormat("en-US", {
@@ -31,22 +41,48 @@ function formatEmploymentType(type: string): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function formatExitReason(reason: string): string {
+  return reason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 interface Props {
   data: PaginatedResponse;
   sortBy: string;
   sortOrder: string;
   onSort: (column: string) => void;
   onEdit: (employee: Employee) => void;
-  onDelete: (employee: Employee) => void;
+  onOffboard: (employee: Employee) => void;
+  onRehire: (employee: Employee) => void;
   onPageChange: (page: number) => void;
 }
 
-function SortIcon({ column, sortBy, sortOrder }: { column: string; sortBy: string; sortOrder: string }) {
+function SortIcon({
+  column,
+  sortBy,
+  sortOrder,
+}: {
+  column: string;
+  sortBy: string;
+  sortOrder: string;
+}) {
   if (sortBy !== column) return <ArrowUpDown className="ml-1 h-3 w-3" />;
-  return sortOrder === "asc" ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />;
+  return sortOrder === "asc" ? (
+    <ArrowUp className="ml-1 h-3 w-3" />
+  ) : (
+    <ArrowDown className="ml-1 h-3 w-3" />
+  );
 }
 
-export function EmployeeTable({ data, sortBy, sortOrder, onSort, onEdit, onDelete, onPageChange }: Props) {
+export function EmployeeTable({
+  data,
+  sortBy,
+  sortOrder,
+  onSort,
+  onEdit,
+  onOffboard,
+  onRehire,
+  onPageChange,
+}: Props) {
   const columns = [
     { key: "full_name", label: "Name" },
     { key: "email", label: "Email" },
@@ -73,6 +109,7 @@ export function EmployeeTable({ data, sortBy, sortOrder, onSort, onEdit, onDelet
                   </button>
                 </TableHead>
               ))}
+              <TableHead className="w-24">Status</TableHead>
               <TableHead className="w-12">Type</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -80,7 +117,7 @@ export function EmployeeTable({ data, sortBy, sortOrder, onSort, onEdit, onDelet
           <TableBody>
             {data.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No employees found
                 </TableCell>
               </TableRow>
@@ -96,7 +133,23 @@ export function EmployeeTable({ data, sortBy, sortOrder, onSort, onEdit, onDelet
                     {formatCurrency(emp.salary, emp.currency)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={emp.employment_type === "full_time" ? "default" : "secondary"}>
+                    {emp.is_active ? (
+                      <Badge variant="default">Active</Badge>
+                    ) : (
+                      <div className="space-y-1">
+                        <Badge variant="secondary">Inactive</Badge>
+                        {emp.exit_reason && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatExitReason(emp.exit_reason)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={emp.employment_type === "full_time" ? "default" : "secondary"}
+                    >
                       {formatEmploymentType(emp.employment_type)}
                     </Badge>
                   </TableCell>
@@ -108,17 +161,26 @@ export function EmployeeTable({ data, sortBy, sortOrder, onSort, onEdit, onDelet
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(emp)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDelete(emp)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {emp.is_active ? (
+                          <>
+                            <DropdownMenuItem onClick={() => onEdit(emp)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => onOffboard(emp)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <UserMinus className="h-4 w-4 mr-2" />
+                              Offboard
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <DropdownMenuItem onClick={() => onRehire(emp)}>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Rehire
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

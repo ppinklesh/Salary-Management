@@ -10,6 +10,20 @@ class EmployeeRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    @staticmethod
+    def _apply_employment_status(
+        stmt,
+        count_stmt,
+        status: str,
+    ):
+        if status == "active":
+            condition = Employee.exit_date.is_(None)
+            return stmt.where(condition), count_stmt.where(condition)
+        if status == "inactive":
+            condition = Employee.exit_date.isnot(None)
+            return stmt.where(condition), count_stmt.where(condition)
+        return stmt, count_stmt
+
     def get_by_id(self, employee_id: int) -> Employee | None:
         stmt = (
             select(Employee)
@@ -30,6 +44,7 @@ class EmployeeRepository:
         country: str | None = None,
         department: str | None = None,
         job_title: str | None = None,
+        status: str = "active",
         sort_by: str = "id",
         sort_order: str = "asc",
     ) -> tuple[list[Employee], int]:
@@ -53,9 +68,11 @@ class EmployeeRepository:
             stmt = stmt.where(Employee.job_title == job_title)
             count_stmt = count_stmt.where(Employee.job_title == job_title)
 
+        stmt, count_stmt = self._apply_employment_status(stmt, count_stmt, status)
+
         allowed_sort_fields = {
             "id", "full_name", "email", "job_title", "department",
-            "country", "hire_date", "created_at",
+            "country", "hire_date", "exit_date", "created_at",
         }
         if sort_by == "salary":
             latest_salary = (
@@ -105,9 +122,24 @@ class EmployeeRepository:
         self.db.refresh(employee)
         return employee
 
-    def delete(self, employee: Employee) -> None:
-        self.db.delete(employee)
+    def offboard(
+        self,
+        employee: Employee,
+        exit_date,
+        exit_reason: str,
+    ) -> Employee:
+        employee.exit_date = exit_date
+        employee.exit_reason = exit_reason
         self.db.commit()
+        self.db.refresh(employee)
+        return employee
+
+    def rehire(self, employee: Employee) -> Employee:
+        employee.exit_date = None
+        employee.exit_reason = None
+        self.db.commit()
+        self.db.refresh(employee)
+        return employee
 
     def add_salary(self, salary: Salary) -> Salary:
         self.db.add(salary)
@@ -116,7 +148,7 @@ class EmployeeRepository:
         return salary
 
     def get_salary_summary(self) -> dict:
-        latest = self._latest_salary_subquery()
+        latest = self._active_employee_latest_salaries()
         stmt = select(
             func.min(latest.c.amount).label("min_salary"),
             func.max(latest.c.amount).label("max_salary"),
@@ -144,17 +176,38 @@ class EmployeeRepository:
                 Salary.currency,
                 Salary.employment_type,
                 func.row_number()
-                .over(partition_by=Salary.employee_id, order_by=Salary.effective_date.desc())
+                .over(
+                    partition_by=Salary.employee_id,
+                    order_by=Salary.effective_date.desc(),
+                )
                 .label("rn"),
             )
             .subquery()
         )
-        return select(
-            ranked.c.employee_id,
-            ranked.c.amount,
-            ranked.c.currency,
-            ranked.c.employment_type,
-        ).where(ranked.c.rn == 1).subquery()
+        return (
+            select(
+                ranked.c.employee_id,
+                ranked.c.amount,
+                ranked.c.currency,
+                ranked.c.employment_type,
+            )
+            .where(ranked.c.rn == 1)
+            .subquery()
+        )
+
+    def _active_employee_latest_salaries(self):
+        latest = self._latest_salary_subquery()
+        return (
+            select(
+                latest.c.employee_id,
+                latest.c.amount,
+                latest.c.currency,
+                latest.c.employment_type,
+            )
+            .join(Employee, Employee.id == latest.c.employee_id)
+            .where(Employee.exit_date.is_(None))
+            .subquery()
+        )
 
     def _get_median_salary(self, latest_sub) -> float:
         count_stmt = select(func.count(latest_sub.c.employee_id))
@@ -175,7 +228,7 @@ class EmployeeRepository:
             return sum(values) / 2
 
     def get_stats_by_country(self) -> list[dict]:
-        latest = self._latest_salary_subquery()
+        latest = self._active_employee_latest_salaries()
         stmt = (
             select(
                 Employee.country,
@@ -185,6 +238,7 @@ class EmployeeRepository:
                 func.count(latest.c.employee_id).label("employee_count"),
             )
             .join(latest, Employee.id == latest.c.employee_id)
+            .where(Employee.exit_date.is_(None))
             .group_by(Employee.country)
             .order_by(func.count(latest.c.employee_id).desc())
         )
@@ -201,7 +255,7 @@ class EmployeeRepository:
         ]
 
     def get_stats_by_job_title(self, country: str | None = None) -> list[dict]:
-        latest = self._latest_salary_subquery()
+        latest = self._active_employee_latest_salaries()
         stmt = (
             select(
                 Employee.job_title,
@@ -211,6 +265,7 @@ class EmployeeRepository:
                 func.count(latest.c.employee_id).label("employee_count"),
             )
             .join(latest, Employee.id == latest.c.employee_id)
+            .where(Employee.exit_date.is_(None))
         )
 
         if country:
@@ -232,7 +287,7 @@ class EmployeeRepository:
         ]
 
     def get_stats_by_department(self) -> list[dict]:
-        latest = self._latest_salary_subquery()
+        latest = self._active_employee_latest_salaries()
         stmt = (
             select(
                 Employee.department,
@@ -242,6 +297,7 @@ class EmployeeRepository:
                 func.count(latest.c.employee_id).label("employee_count"),
             )
             .join(latest, Employee.id == latest.c.employee_id)
+            .where(Employee.exit_date.is_(None))
             .group_by(Employee.department)
             .order_by(func.avg(latest.c.amount).desc())
         )
@@ -258,13 +314,28 @@ class EmployeeRepository:
         ]
 
     def get_distinct_countries(self) -> list[str]:
-        stmt = select(Employee.country).distinct().order_by(Employee.country)
+        stmt = (
+            select(Employee.country)
+            .where(Employee.exit_date.is_(None))
+            .distinct()
+            .order_by(Employee.country)
+        )
         return [row[0] for row in self.db.execute(stmt).all()]
 
     def get_distinct_departments(self) -> list[str]:
-        stmt = select(Employee.department).distinct().order_by(Employee.department)
+        stmt = (
+            select(Employee.department)
+            .where(Employee.exit_date.is_(None))
+            .distinct()
+            .order_by(Employee.department)
+        )
         return [row[0] for row in self.db.execute(stmt).all()]
 
     def get_distinct_job_titles(self) -> list[str]:
-        stmt = select(Employee.job_title).distinct().order_by(Employee.job_title)
+        stmt = (
+            select(Employee.job_title)
+            .where(Employee.exit_date.is_(None))
+            .distinct()
+            .order_by(Employee.job_title)
+        )
         return [row[0] for row in self.db.execute(stmt).all()]

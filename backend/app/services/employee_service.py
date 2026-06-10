@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import math
+from datetime import date
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.employee import Employee, Salary
 from app.repositories.employee_repository import EmployeeRepository
-from app.schemas.employee import EmployeeCreate, EmployeeUpdate
+from app.schemas.employee import EmployeeCreate, EmployeeOffboard, EmployeeUpdate
 
 
 class EmployeeService:
@@ -36,9 +37,13 @@ class EmployeeService:
         country: str | None = None,
         department: str | None = None,
         job_title: str | None = None,
+        status: str = "active",
         sort_by: str = "id",
         sort_order: str = "asc",
     ) -> dict:
+        if status not in {"active", "inactive", "all"}:
+            status = "active"
+
         page_size = min(page_size, 100)
         page = max(page, 1)
 
@@ -49,32 +54,12 @@ class EmployeeService:
             country=country,
             department=department,
             job_title=job_title,
+            status=status,
             sort_by=sort_by,
             sort_order=sort_order,
         )
 
-        data = []
-        for emp in employees:
-            emp_dict = {
-                "id": emp.id,
-                "full_name": emp.full_name,
-                "email": emp.email,
-                "job_title": emp.job_title,
-                "department": emp.department,
-                "country": emp.country,
-                "hire_date": emp.hire_date,
-                "created_at": emp.created_at,
-                "updated_at": emp.updated_at,
-                "salary": None,
-                "currency": None,
-                "employment_type": None,
-            }
-            current = emp.current_salary
-            if current:
-                emp_dict["salary"] = float(current.amount)
-                emp_dict["currency"] = current.currency
-                emp_dict["employment_type"] = current.employment_type
-            data.append(emp_dict)
+        data = [self._to_response(emp, emp.current_salary) for emp in employees]
 
         return {
             "data": data,
@@ -116,6 +101,12 @@ class EmployeeService:
     def update_employee(self, employee_id: int, data: EmployeeUpdate) -> dict:
         employee = self._get_or_404(employee_id)
 
+        if not employee.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot update an inactive employee. Rehire them first.",
+            )
+
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             raise HTTPException(
@@ -139,13 +130,14 @@ class EmployeeService:
 
         current = employee.current_salary
         if salary_updates and current:
-            from datetime import date as date_type
             new_salary = Salary(
                 employee_id=employee.id,
                 amount=salary_updates.get("salary", current.amount),
                 currency=salary_updates.get("currency", current.currency),
-                employment_type=salary_updates.get("employment_type", current.employment_type),
-                effective_date=date_type.today(),
+                employment_type=salary_updates.get(
+                    "employment_type", current.employment_type
+                ),
+                effective_date=date.today(),
             )
             self.repo.add_salary(new_salary)
 
@@ -153,9 +145,35 @@ class EmployeeService:
         employee = self.repo.get_by_id(employee_id)
         return self._to_response(employee, employee.current_salary if employee else None)
 
-    def delete_employee(self, employee_id: int) -> None:
+    def offboard_employee(self, employee_id: int, data: EmployeeOffboard) -> dict:
         employee = self._get_or_404(employee_id)
-        self.repo.delete(employee)
+
+        if not employee.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Employee is already inactive",
+            )
+
+        if data.exit_date < employee.hire_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Exit date cannot be before hire date",
+            )
+
+        employee = self.repo.offboard(employee, data.exit_date, data.exit_reason)
+        return self._to_response(employee, employee.current_salary)
+
+    def rehire_employee(self, employee_id: int) -> dict:
+        employee = self._get_or_404(employee_id)
+
+        if employee.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Employee is already active",
+            )
+
+        employee = self.repo.rehire(employee)
+        return self._to_response(employee, employee.current_salary)
 
     def _to_response(self, employee: Employee, salary: Salary | None) -> dict:
         return {
@@ -166,6 +184,9 @@ class EmployeeService:
             "department": employee.department,
             "country": employee.country,
             "hire_date": employee.hire_date,
+            "exit_date": employee.exit_date,
+            "exit_reason": employee.exit_reason,
+            "is_active": employee.is_active,
             "created_at": employee.created_at,
             "updated_at": employee.updated_at,
             "salary": float(salary.amount) if salary else None,

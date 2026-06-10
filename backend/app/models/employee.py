@@ -18,6 +18,8 @@ class Employee(Base):
     department: Mapped[str] = mapped_column(String(100), nullable=False)
     country: Mapped[str] = mapped_column(String(100), nullable=False)
     hire_date: Mapped[date] = mapped_column(Date, nullable=False)
+    exit_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    exit_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
@@ -35,6 +37,10 @@ class Employee(Base):
         Index("ix_employees_job_title", "job_title"),
         Index("ix_employees_department", "department"),
     )
+
+    @property
+    def is_active(self) -> bool:
+        return self.exit_date is None
 
     @property
     def current_salary(self) -> "Salary | None":

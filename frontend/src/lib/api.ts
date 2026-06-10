@@ -19,6 +19,17 @@ async function fetchApi<T>(
   return res.json();
 }
 
+export const EXIT_REASONS = [
+  "terminated",
+  "resigned",
+  "retired",
+  "layoff",
+  "end_of_contract",
+  "other",
+] as const;
+
+export type ExitReason = (typeof EXIT_REASONS)[number];
+
 export interface Employee {
   id: number;
   full_name: string;
@@ -30,6 +41,9 @@ export interface Employee {
   currency: string;
   employment_type: string;
   hire_date: string;
+  exit_date: string | null;
+  exit_reason: ExitReason | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string | null;
 }
@@ -40,6 +54,11 @@ export interface PaginatedResponse {
   page: number;
   page_size: number;
   total_pages: number;
+}
+
+export interface EmployeeOffboardData {
+  exit_date: string;
+  exit_reason: ExitReason;
 }
 
 export interface EmployeeFormData {
@@ -106,8 +125,15 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(data),
       }),
-    delete: (id: number) =>
-      fetchApi<void>(`/api/v1/employees/${id}`, { method: "DELETE" }),
+    offboard: (id: number, data: EmployeeOffboardData) =>
+      fetchApi<Employee>(`/api/v1/employees/${id}/offboard`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    rehire: (id: number) =>
+      fetchApi<Employee>(`/api/v1/employees/${id}/rehire`, {
+        method: "POST",
+      }),
   },
 
   insights: {

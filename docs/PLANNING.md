@@ -21,6 +21,15 @@ Docker Compose for one-command startup, final documentation, README with setup i
 
 ## Data Modeling Decisions
 
+### Two-Table Design
+
+Employee identity and compensation are stored in separate tables:
+
+- **`employees`** — full name, email, job title, department, country, hire date, exit date, exit reason
+- **`salaries`** — amount, currency, employment type, effective date (linked via `employee_id`)
+
+This normalization supports salary history: each pay change inserts a new row in `salaries` with a new `effective_date`. The current salary is the record with the latest effective date for that employee.
+
 ### Why These Fields?
 
 The assessment requires "full name, job title, country, salary, along with any other meaningful data." Here's the reasoning for each additional field:
@@ -88,11 +97,11 @@ Using TanStack Table with server-side operations because:
 - Clear error messages next to the field that failed
 - Required fields marked visually
 
-### Confirmation Before Delete
-Delete actions show a confirmation dialog because:
-- Deletion is irreversible in this system (no soft delete)
-- The HR Manager is dealing with real employee data — accidental deletion is costly
-- Standard UX practice for destructive actions
+### Confirmation Before Offboard
+Offboard actions show a confirmation dialog with exit date and reason because:
+- Employee records are retained for audit history, but departure is a significant HR event
+- The HR Manager must capture why and when someone left
+- Standard UX practice for irreversible workflow steps (reactivation requires an explicit rehire)
 
 ## Seed Data Strategy
 
@@ -111,7 +120,7 @@ Delete actions show a confirmation dialog because:
 - **Hire Dates**: Distributed over the past 10 years
 
 ### Performance
-- Bulk insert using `session.execute(insert(Employee), list_of_dicts)` — one SQL statement for all 10k rows
+- Bulk insert using `session.execute(insert(Employee), ...)` and `session.execute(insert(Salary), ...)` — two SQL statements for all 10k rows
 - Name files loaded once into memory, not re-read per record
 - Target: under 3 seconds for full seed
 

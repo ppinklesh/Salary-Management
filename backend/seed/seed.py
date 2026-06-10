@@ -131,6 +131,9 @@ COUNTRY_SALARY_MULTIPLIERS = {
 EMPLOYMENT_TYPES = ["full_time", "part_time", "contract"]
 EMPLOYMENT_WEIGHTS = [80, 5, 15]
 
+EXIT_REASONS = ["terminated", "resigned", "retired", "layoff", "end_of_contract", "other"]
+INACTIVE_RATE = 0.05
+
 NUM_EMPLOYEES = 10_000
 
 
@@ -176,6 +179,14 @@ def generate_data(
         )[0]
         hire_date = start_date + timedelta(days=random.randint(0, date_range))
 
+        exit_date = None
+        exit_reason = None
+        if random.random() < INACTIVE_RATE:
+            days_employed = max((date.today() - hire_date).days, 1)
+            exit_offset = random.randint(30, days_employed)
+            exit_date = hire_date + timedelta(days=exit_offset)
+            exit_reason = random.choice(EXIT_REASONS)
+
         employee_id = i + 1
         employees.append(
             {
@@ -186,6 +197,8 @@ def generate_data(
                 "department": department,
                 "country": country,
                 "hire_date": hire_date,
+                "exit_date": exit_date,
+                "exit_reason": exit_reason,
             }
         )
 

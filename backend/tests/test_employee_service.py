@@ -136,11 +136,11 @@ class TestEmployeeServiceUpdate:
 
 
 class TestEmployeeServiceDelete:
-    def test_delete_employee(self, db):
+    def test_offboard_employee(self, db):
         service = EmployeeService(db)
         data = EmployeeCreate(
-            full_name="Delete Me",
-            email="delete@example.com",
+            full_name="Offboard Me",
+            email="offboard@example.com",
             job_title="Temp",
             department="HR",
             country="US",
@@ -151,11 +151,44 @@ class TestEmployeeServiceDelete:
         )
         created = service.create_employee(data)
 
-        service.delete_employee(created["id"])
+        from app.schemas.employee import EmployeeOffboard
 
-        with pytest.raises(HTTPException) as exc_info:
-            service.get_employee(created["id"])
-        assert exc_info.value.status_code == 404
+        result = service.offboard_employee(
+            created["id"],
+            EmployeeOffboard(exit_date=date(2024, 1, 15), exit_reason="resigned"),
+        )
+
+        assert result["is_active"] is False
+        assert result["exit_reason"] == "resigned"
+
+        active_list = service.list_employees(status="active")
+        assert active_list["total"] == 0
+
+    def test_rehire_employee(self, db):
+        service = EmployeeService(db)
+        data = EmployeeCreate(
+            full_name="Rehire Me",
+            email="rehire@example.com",
+            job_title="Temp",
+            department="HR",
+            country="US",
+            salary=40000,
+            currency="USD",
+            employment_type="contract",
+            hire_date=date(2023, 6, 1),
+        )
+        created = service.create_employee(data)
+
+        from app.schemas.employee import EmployeeOffboard
+
+        service.offboard_employee(
+            created["id"],
+            EmployeeOffboard(exit_date=date(2024, 1, 15), exit_reason="terminated"),
+        )
+
+        result = service.rehire_employee(created["id"])
+        assert result["is_active"] is True
+        assert result["exit_date"] is None
 
 
 class TestEmployeeServiceList:

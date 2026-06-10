@@ -4,8 +4,19 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+EXIT_REASONS = frozenset(
+    {"terminated", "resigned", "retired", "layoff", "end_of_contract", "other"}
+)
+
+
+def validate_exit_reason(value: str) -> str:
+    if value not in EXIT_REASONS:
+        raise ValueError(f"Must be one of: {', '.join(sorted(EXIT_REASONS))}")
+    return value
+
 
 # --- Salary Schemas ---
+
 
 class SalaryBase(BaseModel):
     amount: float = Field(..., gt=0)
@@ -41,6 +52,7 @@ class SalaryResponse(SalaryBase):
 
 # --- Employee Schemas ---
 
+
 class EmployeeBase(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=255)
     email: str = Field(..., max_length=255)
@@ -74,6 +86,16 @@ class EmployeeCreate(EmployeeBase):
     @classmethod
     def validate_currency(cls, v: str) -> str:
         return v.upper().strip()
+
+
+class EmployeeOffboard(BaseModel):
+    exit_date: date
+    exit_reason: str = Field(..., min_length=1, max_length=20)
+
+    @field_validator("exit_reason")
+    @classmethod
+    def validate_exit_reason_field(cls, v: str) -> str:
+        return validate_exit_reason(v)
 
 
 class EmployeeUpdate(BaseModel):
@@ -122,6 +144,9 @@ class EmployeeResponse(BaseModel):
     department: str
     country: str
     hire_date: date
+    exit_date: date | None = None
+    exit_reason: str | None = None
+    is_active: bool
     created_at: datetime
     updated_at: datetime | None = None
     salary: float | None = None
@@ -140,6 +165,7 @@ class PaginatedResponse(BaseModel):
 
 
 # --- Insight Schemas ---
+
 
 class SalarySummary(BaseModel):
     min_salary: float

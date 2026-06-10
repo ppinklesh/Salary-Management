@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, Employee, PaginatedResponse } from "@/lib/api";
+import { api, Employee, EmployeeOffboardData, PaginatedResponse } from "@/lib/api";
 import { EmployeeTable } from "./employee-table";
 import { EmployeeFormDialog } from "./employee-form-dialog";
-import { DeleteDialog } from "./delete-dialog";
+import { OffboardDialog } from "./offboard-dialog";
 import { EmployeeFilters } from "./employee-filters";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -21,12 +21,13 @@ export function EmployeesClient() {
   const [country, setCountry] = useState("");
   const [department, setDepartment] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [status, setStatus] = useState("active");
   const [sortBy, setSortBy] = useState("id");
   const [sortOrder, setSortOrder] = useState("asc");
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [deleteEmployee, setDeleteEmployee] = useState<Employee | null>(null);
+  const [offboardEmployee, setOffboardEmployee] = useState<Employee | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
@@ -38,6 +39,7 @@ export function EmployeesClient() {
         country,
         department,
         job_title: jobTitle,
+        status,
         sort_by: sortBy,
         sort_order: sortOrder,
       });
@@ -47,7 +49,7 @@ export function EmployeesClient() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, country, department, jobTitle, sortBy, sortOrder]);
+  }, [page, pageSize, search, country, department, jobTitle, status, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchEmployees();
@@ -69,15 +71,25 @@ export function EmployeesClient() {
     fetchEmployees();
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!deleteEmployee) return;
+  const handleOffboardConfirm = async (offboardData: EmployeeOffboardData) => {
+    if (!offboardEmployee) return;
     try {
-      await api.employees.delete(deleteEmployee.id);
-      toast.success(`${deleteEmployee.full_name} has been deleted`);
-      setDeleteEmployee(null);
+      await api.employees.offboard(offboardEmployee.id, offboardData);
+      toast.success(`${offboardEmployee.full_name} has been offboarded`);
+      setOffboardEmployee(null);
       fetchEmployees();
     } catch {
-      toast.error("Failed to delete employee");
+      toast.error("Failed to offboard employee");
+    }
+  };
+
+  const handleRehire = async (employee: Employee) => {
+    try {
+      await api.employees.rehire(employee.id);
+      toast.success(`${employee.full_name} has been rehired`);
+      fetchEmployees();
+    } catch {
+      toast.error("Failed to rehire employee");
     }
   };
 
@@ -97,12 +109,13 @@ export function EmployeesClient() {
   };
 
   const handleFilterChange = (
-    type: "country" | "department" | "jobTitle",
+    type: "country" | "department" | "jobTitle" | "status",
     value: string
   ) => {
     if (type === "country") setCountry(value);
     if (type === "department") setDepartment(value);
     if (type === "jobTitle") setJobTitle(value);
+    if (type === "status") setStatus(value);
     setPage(1);
   };
 
@@ -126,6 +139,7 @@ export function EmployeesClient() {
         country={country}
         department={department}
         jobTitle={jobTitle}
+        status={status}
         onSearch={handleSearch}
         onFilterChange={handleFilterChange}
       />
@@ -143,7 +157,8 @@ export function EmployeesClient() {
           sortOrder={sortOrder}
           onSort={handleSort}
           onEdit={handleEdit}
-          onDelete={setDeleteEmployee}
+          onOffboard={setOffboardEmployee}
+          onRehire={handleRehire}
           onPageChange={setPage}
         />
       ) : null}
@@ -155,11 +170,11 @@ export function EmployeesClient() {
         onSuccess={handleFormSuccess}
       />
 
-      <DeleteDialog
-        open={!!deleteEmployee}
-        onOpenChange={(open) => !open && setDeleteEmployee(null)}
-        employeeName={deleteEmployee?.full_name || ""}
-        onConfirm={handleDeleteConfirm}
+      <OffboardDialog
+        open={!!offboardEmployee}
+        onOpenChange={(open) => !open && setOffboardEmployee(null)}
+        employeeName={offboardEmployee?.full_name || ""}
+        onConfirm={handleOffboardConfirm}
       />
     </div>
   );
