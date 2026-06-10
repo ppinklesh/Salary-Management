@@ -65,7 +65,7 @@ python -m pytest tests/ -v
 ## Project Structure
 
 ```
-asignment/
+assignment/
 ├── docs/                  # Requirements, architecture, trade-offs, AI usage
 ├── backend/               # FastAPI + SQLite
 │   ├── app/               # Application code (layered architecture)

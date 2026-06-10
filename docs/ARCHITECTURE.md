@@ -177,7 +177,7 @@ All list responses use a consistent envelope:
 ## Folder Structure
 
 ```
-asignment/
+assignment/
 ├── docs/                        # All documentation artifacts
 ├── backend/
 │   ├── app/

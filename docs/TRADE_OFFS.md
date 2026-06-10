@@ -116,7 +116,7 @@ Would provide a smoother UX for browsing, but adds significant frontend complexi
 
 ## 6. Monorepo vs Separate Repositories
 
-**Decision:** Monorepo in `asignment/` with `backend/` and `frontend/` subdirectories
+**Decision:** Monorepo in `assignment/` with `backend/` and `frontend/` subdirectories
 
 **Alternatives:** Two separate repositories (one for backend, one for frontend)
 
