@@ -8,11 +8,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DepartmentStats } from "@/lib/api";
-import { chartBarColor } from "@/lib/chart-colors";
+import { ColoredBarShape } from "@/lib/colored-bar-shape";
 
 function formatCurrency(value: number): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -21,17 +20,18 @@ function formatCurrency(value: number): string {
 }
 
 interface Props {
-  data: DepartmentStats[];
+  readonly data: DepartmentStats[];
 }
 
-export function DepartmentChart({ data }: Props) {
+export function DepartmentChart({ data }: Readonly<Props>) {
   const chartData = data
-    .sort((a, b) => b.avg_salary - a.avg_salary)
-    .map((item) => ({
+    .toSorted((a, b) => b.avg_salary - a.avg_salary)
+    .map((item, colorIndex) => ({
       name: item.department.length > 14 ? item.department.slice(0, 14) + "…" : item.department,
       avg_salary: Math.round(item.avg_salary),
       fullName: item.department,
       count: item.employee_count,
+      colorIndex,
     }));
 
   return (
@@ -61,14 +61,7 @@ export function DepartmentChart({ data }: Props) {
                 payload?.[0]?.payload?.fullName || ""
               }
             />
-            <Bar dataKey="avg_salary" radius={[4, 4, 0, 0]}>
-              {chartData.map((_, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={chartBarColor(index)}
-                />
-              ))}
-            </Bar>
+            <Bar dataKey="avg_salary" radius={[4, 4, 0, 0]} shape={ColoredBarShape} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

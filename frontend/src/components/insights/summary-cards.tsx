@@ -9,10 +9,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-interface Props {
+type Props = Readonly<{
   summary: SalarySummary;
   countriesCount: number;
-}
+}>;
 
 export function SummaryCards({ summary, countriesCount }: Props) {
   const cards = [
@@ -50,14 +50,16 @@ export function SummaryCards({ summary, countriesCount }: Props) {
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">Global salary figures normalized to USD for comparison.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card) => (
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
           <Card key={card.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {card.title}
               </CardTitle>
               <div className={`rounded-lg p-2 ${card.iconClass}`}>
-                <card.icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
@@ -65,7 +67,8 @@ export function SummaryCards({ summary, countriesCount }: Props) {
               <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

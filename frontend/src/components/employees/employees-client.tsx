@@ -144,6 +144,35 @@ export function EmployeesClient() {
     setPage(1);
   };
 
+  const renderEmployeeContent = () => {
+    if (loading && !data) {
+      return (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }, (_, index) => (
+            <Skeleton key={`employee-row-skeleton-${index}`} className="h-12 w-full rounded" />
+          ))}
+        </div>
+      );
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return (
+      <EmployeeTable
+        data={data}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        onEdit={handleEdit}
+        onOffboard={setOffboardEmployee}
+        onRehire={handleRehire}
+        onPageChange={setPage}
+      />
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -169,24 +198,7 @@ export function EmployeesClient() {
         onFilterChange={handleFilterChange}
       />
 
-      {loading && !data ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded" />
-          ))}
-        </div>
-      ) : data ? (
-        <EmployeeTable
-          data={data}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSort={handleSort}
-          onEdit={handleEdit}
-          onOffboard={setOffboardEmployee}
-          onRehire={handleRehire}
-          onPageChange={setPage}
-        />
-      ) : null}
+      {renderEmployeeContent()}
 
       <EmployeeFormDialog
         open={formOpen}

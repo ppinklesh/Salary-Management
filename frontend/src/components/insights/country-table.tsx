@@ -12,12 +12,12 @@ import {
 import { CountryStats } from "@/lib/api";
 import { formatCurrencyCode, getLocalCurrency } from "@/lib/currency";
 
-interface Props {
+type Props = Readonly<{
   data: CountryStats[];
-}
+}>;
 
 export function CountryTable({ data }: Props) {
-  const sorted = [...data].sort((a, b) => b.employee_count - a.employee_count);
+  const sorted = data.toSorted((a, b) => b.employee_count - a.employee_count);
 
   return (
     <Card>

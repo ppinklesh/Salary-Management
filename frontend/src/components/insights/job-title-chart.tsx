@@ -8,11 +8,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { JobTitleStats } from "@/lib/api";
-import { chartBarColor } from "@/lib/chart-colors";
+import { ColoredBarShape } from "@/lib/colored-bar-shape";
 
 function formatCurrency(value: number): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -20,25 +19,28 @@ function formatCurrency(value: number): string {
   return `$${value}`;
 }
 
+const TOP_JOB_TITLE_COUNT = 12;
+
 interface Props {
-  data: JobTitleStats[];
+  readonly data: JobTitleStats[];
 }
 
-export function JobTitleChart({ data }: Props) {
-  const chartData = data
-    .sort((a, b) => b.avg_salary - a.avg_salary)
-    .slice(0, 12)
-    .map((item) => ({
+export function JobTitleChart({ data }: Readonly<Props>) {
+  const topJobTitles = data.toSorted((a, b) => b.avg_salary - a.avg_salary);
+  const chartData = topJobTitles.slice(0, TOP_JOB_TITLE_COUNT).map((item, colorIndex) => ({
       name: item.job_title.length > 18 ? item.job_title.slice(0, 18) + "…" : item.job_title,
       avg_salary: Math.round(item.avg_salary),
       fullName: item.job_title,
       count: item.employee_count,
+      colorIndex,
     }));
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Average Salary by Job Title (Top 12)</CardTitle>
+        <CardTitle className="text-base">
+          Average Salary by Job Title — Top {TOP_JOB_TITLE_COUNT}
+        </CardTitle>
         <p className="text-xs text-muted-foreground">USD equivalents for cross-role comparison.</p>
       </CardHeader>
       <CardContent>
@@ -65,14 +67,7 @@ export function JobTitleChart({ data }: Props) {
                 `${payload?.[0]?.payload?.fullName} (${payload?.[0]?.payload?.count} employees)`
               }
             />
-            <Bar dataKey="avg_salary" radius={[0, 4, 4, 0]}>
-              {chartData.map((_, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={chartBarColor(index)}
-                />
-              ))}
-            </Bar>
+            <Bar dataKey="avg_salary" radius={[0, 4, 4, 0]} shape={ColoredBarShape} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

@@ -29,7 +29,7 @@ import {
 } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Briefcase, Loader2, MapPin, User } from "lucide-react";
+import { Briefcase, Loader2, MapPin, User, type LucideIcon } from "lucide-react";
 
 const COUNTRIES = Object.keys(COUNTRY_CURRENCY);
 
@@ -49,10 +49,10 @@ const JOB_TITLES = [
 ];
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  employee: Employee | null;
-  onSuccess: () => void;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly employee: Employee | null;
+  readonly onSuccess: () => void;
 }
 
 const defaultForm: EmployeeFormData = {
@@ -67,17 +67,19 @@ const defaultForm: EmployeeFormData = {
   hire_date: new Date().toISOString().split("T")[0],
 };
 
+interface FormSectionProps {
+  readonly icon: LucideIcon;
+  readonly title: string;
+  readonly description: string;
+  readonly children: React.ReactNode;
+}
+
 function FormSection({
   icon: Icon,
   title,
   description,
   children,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+}: FormSectionProps) {
   return (
     <section className="space-y-4">
       <div className="flex items-start gap-3">
@@ -94,19 +96,21 @@ function FormSection({
   );
 }
 
+interface FormFieldProps {
+  readonly label: string;
+  readonly htmlFor?: string;
+  readonly error?: string;
+  readonly className?: string;
+  readonly children: React.ReactNode;
+}
+
 function FormField({
   label,
   htmlFor,
   error,
   className,
   children,
-}: {
-  label: string;
-  htmlFor?: string;
-  error?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
+}: FormFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
@@ -128,8 +132,9 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
     form.country && localSalary > 0
       ? Math.round(convertLocalToUsd(localSalary, form.country) * 100) / 100
       : 0;
+  const showUsdPreview = Boolean(form.country && localSalary > 0);
 
-    useEffect(() => {
+  useEffect(() => {
     if (employee) {
       setForm({
         full_name: employee.full_name,
@@ -345,7 +350,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
               {!form.country && (
                 <p className="text-xs text-muted-foreground">Select a country first to enter salary.</p>
               )}
-              {form.country && localSalary > 0 && (
+              {showUsdPreview && (
                 <p className="text-xs text-muted-foreground">
                   USD value will be{" "}
                   <span className="font-medium text-foreground">{formatUsd(usdEquivalent)}</span>

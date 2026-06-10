@@ -15,13 +15,13 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
 interface Props {
-  search: string;
-  country: string;
-  department: string;
-  jobTitle: string;
-  status: string;
-  onSearch: (value: string) => void;
-  onFilterChange: (
+  readonly search: string;
+  readonly country: string;
+  readonly department: string;
+  readonly jobTitle: string;
+  readonly status: string;
+  readonly onSearch: (value: string) => void;
+  readonly onFilterChange: (
     type: "country" | "department" | "jobTitle" | "status",
     value: string
   ) => void;
@@ -29,17 +29,19 @@ interface Props {
 
 const controlClass = "h-8";
 
+interface FilterFieldProps {
+  readonly label: string;
+  readonly htmlFor: string;
+  readonly className?: string;
+  readonly children: ReactNode;
+}
+
 function FilterField({
   label,
   htmlFor,
   className,
   children,
-}: {
-  label: string;
-  htmlFor: string;
-  className?: string;
-  children: ReactNode;
-}) {
+}: FilterFieldProps) {
   return (
     <div className={className}>
       <Label htmlFor={htmlFor} className="mb-1.5 block h-4 leading-4">

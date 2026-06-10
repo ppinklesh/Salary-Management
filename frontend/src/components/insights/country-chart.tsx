@@ -8,12 +8,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountryStats } from "@/lib/api";
-import { chartBarColor } from "@/lib/chart-colors";
 import { convertLocalAmountToUsd, formatUsd, getLocalCurrency } from "@/lib/currency";
+import { ColoredBarShape } from "@/lib/colored-bar-shape";
 
 function formatAxisUsd(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
@@ -22,14 +21,14 @@ function formatAxisUsd(value: number): string {
 }
 
 interface Props {
-  data: CountryStats[];
+  readonly data: CountryStats[];
 }
 
-export function CountryChart({ data }: Props) {
+export function CountryChart({ data }: Readonly<Props>) {
   const chartData = data
-    .sort((a, b) => b.avg_salary - a.avg_salary)
+    .toSorted((a, b) => b.avg_salary - a.avg_salary)
     .slice(0, 10)
-    .map((item) => {
+    .map((item, colorIndex) => {
       const currency = getLocalCurrency(item.country);
       const avgUsd = convertLocalAmountToUsd(item.avg_salary, currency);
       return {
@@ -38,6 +37,7 @@ export function CountryChart({ data }: Props) {
         fullName: item.country,
         localAvg: item.avg_salary,
         currency,
+        colorIndex,
       };
     });
 
@@ -69,14 +69,7 @@ export function CountryChart({ data }: Props) {
                 return `${row.fullName} — local avg stored in DB`;
               }}
             />
-            <Bar dataKey="avg_salary" radius={[4, 4, 0, 0]}>
-              {chartData.map((_, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={chartBarColor(index)}
-                />
-              ))}
-            </Bar>
+            <Bar dataKey="avg_salary" radius={[4, 4, 0, 0]} shape={ColoredBarShape} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
