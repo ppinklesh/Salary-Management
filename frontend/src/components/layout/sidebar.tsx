@@ -16,7 +16,7 @@ export function Sidebar() {
   const isEmployeesPage = pathname.startsWith("/employees");
 
   return (
-    <aside className="w-64 border-r border-sidebar-border bg-sidebar min-h-screen flex flex-col">
+    <aside className="flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
       <div className="p-6 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-2">
           <Building2 className="h-6 w-6 text-primary" />

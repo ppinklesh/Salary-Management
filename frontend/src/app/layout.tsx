@@ -29,9 +29,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex">
+      <body className="flex h-screen overflow-hidden antialiased">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="container mx-auto p-6 max-w-7xl">{children}</div>
         </main>
         <Toaster richColors position="top-right" />

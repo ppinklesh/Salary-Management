@@ -18,17 +18,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect, useState } from "react";
-import { EmployeeOffboardData, EXIT_REASONS } from "@/lib/api";
+import { useState } from "react";
+import { EmployeeOffboardData, EXIT_REASONS, type ExitReason } from "@/lib/api";
 
-interface Props {
+type Props = Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employeeName: string;
   onConfirm: (data: EmployeeOffboardData) => void;
-}
+}>;
 
-const REASON_LABELS: Record<string, string> = {
+type OffboardDialogBodyProps = Readonly<{
+  onConfirm: (data: EmployeeOffboardData) => void;
+  onCancel: () => void;
+}>;
+
+const REASON_LABELS: Record<ExitReason, string> = {
   terminated: "Terminated",
   resigned: "Resigned",
   retired: "Retired",
@@ -37,24 +42,74 @@ const REASON_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+function isExitReason(value: string): value is ExitReason {
+  return (EXIT_REASONS as readonly string[]).includes(value);
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+function OffboardDialogBody({ onConfirm, onCancel }: OffboardDialogBodyProps) {
+  const [exitDate, setExitDate] = useState(todayIsoDate);
+  const [exitReason, setExitReason] = useState<ExitReason>("resigned");
+
+  return (
+    <>
+      <div className="space-y-4 py-2">
+        <div>
+          <Label htmlFor="exit_date">Exit Date</Label>
+          <Input
+            id="exit_date"
+            type="date"
+            value={exitDate}
+            onChange={(e) => setExitDate(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label>Exit Reason</Label>
+          <Select
+            value={exitReason}
+            onValueChange={(v) => {
+              if (v && isExitReason(v)) setExitReason(v);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select reason" />
+            </SelectTrigger>
+            <SelectContent>
+              {EXIT_REASONS.map((reason) => (
+                <SelectItem key={reason} value={reason}>
+                  {REASON_LABELS[reason]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={() => onConfirm({ exit_date: exitDate, exit_reason: exitReason })}
+          disabled={!exitDate || !exitReason}
+        >
+          Offboard
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
 export function OffboardDialog({
   open,
   onOpenChange,
   employeeName,
   onConfirm,
 }: Props) {
-  const [exitDate, setExitDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [exitReason, setExitReason] = useState("resigned");
-
-  useEffect(() => {
-    if (open) {
-      setExitDate(new Date().toISOString().split("T")[0]);
-      setExitReason("resigned");
-    }
-  }, [open]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -66,45 +121,13 @@ export function OffboardDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div>
-            <Label htmlFor="exit_date">Exit Date</Label>
-            <Input
-              id="exit_date"
-              type="date"
-              value={exitDate}
-              onChange={(e) => setExitDate(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Exit Reason</Label>
-            <Select value={exitReason} onValueChange={(v) => v && setExitReason(v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {EXIT_REASONS.map((reason) => (
-                  <SelectItem key={reason} value={reason}>
-                    {REASON_LABELS[reason] || reason}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => onConfirm({ exit_date: exitDate, exit_reason: exitReason })}
-            disabled={!exitDate || !exitReason}
-          >
-            Offboard
-          </Button>
-        </DialogFooter>
+        {open ? (
+          <OffboardDialogBody
+            key={employeeName}
+            onConfirm={onConfirm}
+            onCancel={() => onOpenChange(false)}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

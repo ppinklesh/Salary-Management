@@ -11,6 +11,8 @@ from app.models.employee import Employee, Salary
 from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.employee import EmployeeCreate, EmployeeOffboard, EmployeeUpdate
 
+REJOIN_ALLOWED_EXIT_REASON = "resigned"
+
 
 class EmployeeService:
     def __init__(self, db: Session):
@@ -71,12 +73,7 @@ class EmployeeService:
         }
 
     def create_employee(self, data: EmployeeCreate) -> dict:
-        existing = self.repo.get_by_email(data.email)
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Employee with email {data.email} already exists",
-            )
+        self._validate_email_for_create(data.email)
 
         employee = Employee(
             full_name=data.full_name,
@@ -118,12 +115,7 @@ class EmployeeService:
             )
 
         if "email" in update_data and update_data["email"] != employee.email:
-            existing = self.repo.get_by_email(update_data["email"])
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Email {update_data['email']} is already in use",
-                )
+            self._validate_email_for_update(update_data["email"], employee.id)
 
         salary_fields = {"salary", "currency", "employment_type"}
         salary_updates = {k: update_data.pop(k) for k in salary_fields if k in update_data}
@@ -179,6 +171,12 @@ class EmployeeService:
                 detail="Employee is already active",
             )
 
+        if employee.exit_reason != REJOIN_ALLOWED_EXIT_REASON:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only employees who resigned can be rehired",
+            )
+
         employee = self.repo.rehire(employee)
         return self._to_response(employee, employee.current_salary)
 
@@ -208,4 +206,29 @@ class EmployeeService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Salary currency must be {expected} for employees in {country}",
+            )
+
+    def _validate_email_for_create(self, email: str) -> None:
+        if self.repo.get_active_by_email(email):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"An active employee with email {email} already exists",
+            )
+
+        for employee in self.repo.list_inactive_by_email(email):
+            if employee.exit_reason != REJOIN_ALLOWED_EXIT_REASON:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Cannot onboard this email — a previous employee record left for a "
+                        "reason other than resignation. Only resigned employees may rejoin."
+                    ),
+                )
+
+    def _validate_email_for_update(self, email: str, current_employee_id: int) -> None:
+        active = self.repo.get_active_by_email(email)
+        if active and active.id != current_employee_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Email {email} is already in use by an active employee",
             )

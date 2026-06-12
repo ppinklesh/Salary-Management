@@ -14,7 +14,42 @@ class TestCreateEmployee:
         response = client.post("/api/v1/employees", json=sample_employee_data)
 
         assert response.status_code == 409
-        assert "already exists" in response.json()["detail"]
+        assert "active employee" in response.json()["detail"].lower()
+
+    def test_create_employee_after_resigned_same_email(self, client, sample_employee_data):
+        create_resp = client.post("/api/v1/employees", json=sample_employee_data)
+        employee_id = create_resp.json()["id"]
+        client.post(
+            f"/api/v1/employees/{employee_id}/offboard",
+            json={"exit_date": "2024-06-01", "exit_reason": "resigned"},
+        )
+
+        sample_employee_data["full_name"] = "John Doe (Return)"
+        sample_employee_data["hire_date"] = "2025-01-15"
+        sample_employee_data["salary"] = 105000
+        response = client.post("/api/v1/employees", json=sample_employee_data)
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["id"] != employee_id
+        assert data["email"] == "john.doe@example.com"
+        assert data["is_active"] is True
+
+    def test_create_employee_blocked_after_terminated_same_email(
+        self, client, sample_employee_data
+    ):
+        create_resp = client.post("/api/v1/employees", json=sample_employee_data)
+        employee_id = create_resp.json()["id"]
+        client.post(
+            f"/api/v1/employees/{employee_id}/offboard",
+            json={"exit_date": "2024-06-01", "exit_reason": "terminated"},
+        )
+
+        sample_employee_data["full_name"] = "John Doe (Blocked Return)"
+        response = client.post("/api/v1/employees", json=sample_employee_data)
+
+        assert response.status_code == 409
+        assert "resignation" in response.json()["detail"].lower()
 
     def test_create_employee_invalid_email(self, client, sample_employee_data):
         sample_employee_data["email"] = "invalid-email"
@@ -225,3 +260,15 @@ class TestDeleteEmployee:
         assert response.json()["is_active"] is True
         assert response.json()["exit_date"] is None
         assert response.json()["exit_reason"] is None
+
+    def test_rehire_non_resigned_employee_fails(self, client, sample_employee_data):
+        create_resp = client.post("/api/v1/employees", json=sample_employee_data)
+        employee_id = create_resp.json()["id"]
+        client.post(
+            f"/api/v1/employees/{employee_id}/offboard",
+            json={"exit_date": "2024-06-01", "exit_reason": "terminated"},
+        )
+
+        response = client.post(f"/api/v1/employees/{employee_id}/rehire")
+        assert response.status_code == 400
+        assert "resigned" in response.json()["detail"].lower()

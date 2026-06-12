@@ -37,6 +37,20 @@ class EmployeeRepository:
         stmt = select(Employee).where(Employee.email == email)
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_active_by_email(self, email: str) -> Employee | None:
+        stmt = select(Employee).where(
+            Employee.email == email,
+            Employee.exit_date.is_(None),
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def list_inactive_by_email(self, email: str) -> list[Employee]:
+        stmt = select(Employee).where(
+            Employee.email == email,
+            Employee.exit_date.isnot(None),
+        )
+        return list(self.db.execute(stmt).scalars().all())
+
     def list(
         self,
         page: int = 1,

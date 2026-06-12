@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -13,7 +13,7 @@ class Employee(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     job_title: Mapped[str] = mapped_column(String(100), nullable=False)
     department: Mapped[str] = mapped_column(String(100), nullable=False)
     country: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -36,6 +36,12 @@ class Employee(Base):
         Index("ix_employees_country", "country"),
         Index("ix_employees_job_title", "job_title"),
         Index("ix_employees_department", "department"),
+        Index(
+            "uq_employees_email_active",
+            "email",
+            unique=True,
+            sqlite_where=text("exit_date IS NULL"),
+        ),
     )
 
     @property

@@ -61,6 +61,90 @@ class TestEmployeeServiceCreate:
         with pytest.raises(HTTPException) as exc_info:
             service.create_employee(data2)
         assert exc_info.value.status_code == 409
+        assert "active employee" in exc_info.value.detail.lower()
+
+    def test_create_after_resigned_employee_same_email(self, db):
+        service = EmployeeService(db)
+        email = "returning@example.com"
+        first = EmployeeCreate(
+            full_name="First Stint",
+            email=email,
+            job_title="Engineer",
+            department="Engineering",
+            country="United States",
+            salary=90000,
+            currency="USD",
+            employment_type="full_time",
+            hire_date=date(2020, 1, 1),
+        )
+        created = service.create_employee(first)
+
+        from app.schemas.employee import EmployeeOffboard
+
+        service.offboard_employee(
+            created["id"],
+            EmployeeOffboard(exit_date=date(2022, 6, 1), exit_reason="resigned"),
+        )
+
+        second = EmployeeCreate(
+            full_name="Second Stint",
+            email=email,
+            job_title="Senior Engineer",
+            department="Engineering",
+            country="United States",
+            salary=110000,
+            currency="USD",
+            employment_type="full_time",
+            hire_date=date(2024, 1, 1),
+        )
+        result = service.create_employee(second)
+
+        assert result["id"] != created["id"]
+        assert result["email"] == email
+        assert result["is_active"] is True
+        assert result["full_name"] == "Second Stint"
+
+    def test_create_blocked_after_terminated_employee_same_email(self, db):
+        service = EmployeeService(db)
+        email = "blocked@example.com"
+        created = service.create_employee(
+            EmployeeCreate(
+                full_name="Former Employee",
+                email=email,
+                job_title="Engineer",
+                department="Engineering",
+                country="United States",
+                salary=90000,
+                currency="USD",
+                employment_type="full_time",
+                hire_date=date(2020, 1, 1),
+            )
+        )
+
+        from app.schemas.employee import EmployeeOffboard
+
+        service.offboard_employee(
+            created["id"],
+            EmployeeOffboard(exit_date=date(2022, 6, 1), exit_reason="terminated"),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_employee(
+                EmployeeCreate(
+                    full_name="New Attempt",
+                    email=email,
+                    job_title="Engineer",
+                    department="Engineering",
+                    country="United States",
+                    salary=95000,
+                    currency="USD",
+                    employment_type="full_time",
+                    hire_date=date(2024, 1, 1),
+                )
+            )
+
+        assert exc_info.value.status_code == 409
+        assert "resignation" in exc_info.value.detail.lower()
 
 
 class TestEmployeeServiceGet:
@@ -183,12 +267,39 @@ class TestEmployeeServiceDelete:
 
         service.offboard_employee(
             created["id"],
-            EmployeeOffboard(exit_date=date(2024, 1, 15), exit_reason="terminated"),
+            EmployeeOffboard(exit_date=date(2024, 1, 15), exit_reason="resigned"),
         )
 
         result = service.rehire_employee(created["id"])
         assert result["is_active"] is True
         assert result["exit_date"] is None
+
+    def test_rehire_non_resigned_employee_raises(self, db):
+        service = EmployeeService(db)
+        data = EmployeeCreate(
+            full_name="Terminated Employee",
+            email="terminated@example.com",
+            job_title="Temp",
+            department="HR",
+            country="United States",
+            salary=40000,
+            currency="USD",
+            employment_type="contract",
+            hire_date=date(2023, 6, 1),
+        )
+        created = service.create_employee(data)
+
+        from app.schemas.employee import EmployeeOffboard
+
+        service.offboard_employee(
+            created["id"],
+            EmployeeOffboard(exit_date=date(2024, 1, 15), exit_reason="terminated"),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            service.rehire_employee(created["id"])
+        assert exc_info.value.status_code == 400
+        assert "resigned" in exc_info.value.detail.lower()
 
 
 class TestEmployeeServiceList:

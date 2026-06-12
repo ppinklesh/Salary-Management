@@ -74,6 +74,49 @@ function SortIcon({ column, sortBy, sortOrder }: SortIconProps) {
   );
 }
 
+type EmployeeRowActionsProps = Readonly<{
+  employee: Employee;
+  onEdit: (employee: Employee) => void;
+  onOffboard: (employee: Employee) => void;
+  onRehire: (employee: Employee) => void;
+}>;
+
+function EmployeeRowActions({
+  employee,
+  onEdit,
+  onOffboard,
+  onRehire,
+}: EmployeeRowActionsProps) {
+  if (employee.is_active) {
+    return (
+      <>
+        <DropdownMenuItem onClick={() => onEdit(employee)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onOffboard(employee)}
+          className="text-destructive focus:text-destructive"
+        >
+          <UserMinus className="h-4 w-4 mr-2" />
+          Offboard
+        </DropdownMenuItem>
+      </>
+    );
+  }
+
+  if (employee.exit_reason === "resigned") {
+    return (
+      <DropdownMenuItem onClick={() => onRehire(employee)}>
+        <UserPlus className="h-4 w-4 mr-2" />
+        Rehire
+      </DropdownMenuItem>
+    );
+  }
+
+  return null;
+}
+
 export function EmployeeTable({
   data,
   sortBy,
@@ -170,26 +213,12 @@ export function EmployeeTable({
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {emp.is_active ? (
-                          <>
-                            <DropdownMenuItem onClick={() => onEdit(emp)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => onOffboard(emp)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <UserMinus className="h-4 w-4 mr-2" />
-                              Offboard
-                            </DropdownMenuItem>
-                          </>
-                        ) : (
-                          <DropdownMenuItem onClick={() => onRehire(emp)}>
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Rehire
-                          </DropdownMenuItem>
-                        )}
+                        <EmployeeRowActions
+                          employee={emp}
+                          onEdit={onEdit}
+                          onOffboard={onOffboard}
+                          onRehire={onRehire}
+                        />
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
