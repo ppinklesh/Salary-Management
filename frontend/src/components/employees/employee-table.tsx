@@ -33,14 +33,22 @@ import {
 import { convertLocalAmountToUsd, formatCurrencyCode, formatUsd } from "@/lib/currency";
 
 function formatEmploymentType(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return type.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatExitReason(reason: string): string {
-  return reason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return reason.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-interface Props {
+function getEmploymentTypeVariant(
+  employmentType: string
+): "default" | "outline" | "secondary" {
+  if (employmentType === "full_time") return "default";
+  if (employmentType === "contractor") return "outline";
+  return "secondary";
+}
+
+type Props = Readonly<{
   data: PaginatedResponse;
   sortBy: string;
   sortOrder: string;
@@ -49,17 +57,15 @@ interface Props {
   onOffboard: (employee: Employee) => void;
   onRehire: (employee: Employee) => void;
   onPageChange: (page: number) => void;
-}
+}>;
 
-function SortIcon({
-  column,
-  sortBy,
-  sortOrder,
-}: {
+type SortIconProps = Readonly<{
   column: string;
   sortBy: string;
   sortOrder: string;
-}) {
+}>;
+
+function SortIcon({ column, sortBy, sortOrder }: SortIconProps) {
   if (sortBy !== column) return <ArrowUpDown className="ml-1 h-3 w-3" />;
   return sortOrder === "asc" ? (
     <ArrowUp className="ml-1 h-3 w-3" />
@@ -149,15 +155,7 @@ export function EmployeeTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        emp.employment_type === "full_time"
-                          ? "default"
-                          : emp.employment_type === "contractor"
-                            ? "outline"
-                            : "secondary"
-                      }
-                    >
+                    <Badge variant={getEmploymentTypeVariant(emp.employment_type)}>
                       {formatEmploymentType(emp.employment_type)}
                     </Badge>
                   </TableCell>

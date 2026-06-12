@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -169,7 +169,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validate()) return;
 
@@ -339,7 +339,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employee, onSuccess }: 
                   id="local_salary"
                   type="number"
                   value={localSalary || ""}
-                  onChange={(e) => setLocalSalary(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setLocalSalary(Number.parseFloat(e.target.value) || 0)}
                   placeholder={localCurrency === "INR" ? "1500000" : "95000"}
                   min="0"
                   step={localCurrency === "JPY" ? "10000" : "1000"}
