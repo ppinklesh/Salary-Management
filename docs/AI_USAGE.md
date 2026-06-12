@@ -72,6 +72,78 @@
 - Structured and formatted the documentation
 - Ensured consistency across documents
 
+## Sample Prompts Used
+
+These are representative prompts from the assignment work — written roughly how I actually typed them, not cleaned up for presentation.
+
+### Planning & backend setup
+
+> need to build a salary management web app for HR. around 10k employees, multiple countries. thinking fastapi + sqlite for backend and nextjs for frontend. can you help me sketch a layered structure — endpoints, service, repo — before we write code?
+
+> lets keep employee info and salary in separate tables. when salary changes insert a new row with effective date, dont update the old one. api can still return current salary on the employee object
+
+> write pytest tests for employee create/list/update. use in memory sqlite for tests
+
+### Seed data
+
+> seed script needs to create 10000 employees. use first_names.txt and last_names.txt from the seed folder. should run fast if i run it multiple times
+
+### Employee APIs & insights
+
+> GET /employees should support page, page_size, search on name, filters for country department job title, and sort. pagination has to be server side otherwise 10k rows will kill the ui
+
+> need insight endpoints — summary stats (min max avg median headcount), breakdown by country, by department, by job title. only active employees for dashboard numbers
+
+### Frontend
+
+> build employees page with a table, filters at top, add/edit in a dialog. hook it up to the api client we have in lib/api.ts
+
+> dashboard with summary cards and bar charts for country and department. use recharts if thats easiest with shadcn
+
+> offboard button should open a dialog for exit date and reason. inactive employees should still show in the table when i filter status=inactive. rehire for people who resigned
+
+### Dev experience & fixes
+
+> docker compose file for backend + frontend so someone can clone and run docker compose up --build
+
+> getting nested button hydration error in employee table dropdown menu, can you fix without breaking the actions menu
+
+> store salary in local currency based on country. hr enters local amount on the form, show usd as reference only on dashboard
+
+### Testing & edge cases
+
+> add test for duplicate email on create — should return 409
+
+> what edge cases am i missing for employee update? like updating inactive employee, empty body, duplicate email on someone else
+
+> insights tests are failing on salary numbers because of float precision. fix with pytest.approx or whatever is standard
+
+> write tests for offboard — already inactive employee, exit date before hire date, employee not found
+
+> test list employees with search + filters together. also pagination page 2 should return different rows than page 1
+
+> insights summary when db is empty should return zeros not crash
+
+> add endpoint test for rehire — success case and trying to rehire someone who was terminated not resigned
+
+> resigned employee left the company but same email blocks add employee because email is unique. only active employees should block email, resigned people can come back as new record
+
+### Bug fixes & errors
+
+> next build failing — Type error exit_reason string not assignable to union type in offboard dialog. fix it
+
+> sonarqube complaining about nested ternary in employee-table, can you extract it to a helper
+
+> chart bars all showing black/white, need actual colors for country and department charts
+
+> left sidebar scrolls with the page, it should stay fixed only main content scrolls
+
+> fix this error: Prefer String#replaceAll() over String#replace in employee-table
+
+> FormEvent is deprecated in employee-form-dialog handleSubmit, what should i use instead
+
+> Do not perform equality checks with floating point values in test_employee_endpoints — use pytest.approx
+
 ## Delegation Strategy
 
 | Task Type | Delegated to AI? | Reasoning |
