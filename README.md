@@ -1,5 +1,7 @@
 # Employee Salary Management Tool
 
+https://salary-management-psi-five.vercel.app/
+
 A full-stack web application for managing employee salary data across a 10,000-person organization. Built for the HR Manager persona to replace Excel-based workflows.
 
 ## Quick Start
