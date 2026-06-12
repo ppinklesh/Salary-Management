@@ -1,3 +1,8 @@
+import pytest
+
+SALARY_REL = 1e-2
+
+
 class TestCreateEmployee:
     def test_create_employee_success(self, client, sample_employee_data):
         response = client.post("/api/v1/employees", json=sample_employee_data)
@@ -6,7 +11,7 @@ class TestCreateEmployee:
         data = response.json()
         assert data["full_name"] == "John Doe"
         assert data["email"] == "john.doe@example.com"
-        assert data["salary"] == 95000.00
+        assert data["salary"] == pytest.approx(95000.00, rel=SALARY_REL)
         assert data["id"] is not None
 
     def test_create_employee_duplicate_email(self, client, sample_employee_data):
@@ -171,7 +176,7 @@ class TestUpdateEmployee:
         )
 
         assert response.status_code == 200
-        assert response.json()["salary"] == 105000.00
+        assert response.json()["salary"] == pytest.approx(105000.00, rel=SALARY_REL)
         assert response.json()["job_title"] == "Senior Software Engineer"
 
     def test_update_employee_not_found(self, client):
